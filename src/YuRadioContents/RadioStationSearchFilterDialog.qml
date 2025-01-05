@@ -96,14 +96,14 @@ Dialog {
 
         anchors.fill: parent
 
-        contentWidth: -1
-        contentHeight: -1
+        contentWidth: availableWidth
+        contentHeight: availableHeight
 
         ColumnLayout {
             id: columnLayout
 
-            width: scrollView.width
-            height: scrollView.height
+            width: scrollView.availableWidth
+            height: scrollView.availableHeight
 
             ScalableLabel {
                 text: qsTr("Search Filters")
@@ -118,6 +118,7 @@ Dialog {
             GridLayout {
                 id: gridLayout
 
+                Layout.fillWidth: true
                 Layout.topMargin: 20
                 columns: 2
 

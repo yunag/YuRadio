@@ -118,8 +118,8 @@ StackViewPage {
         sourceComponent: RadioStationSearchFilterDialog {
             id: searchFilterDialog
 
-            implicitWidth: Math.min(Overlay.overlay.width * 5 / 6, 500)
-            implicitHeight: Overlay.overlay.height * 6 / 7
+            implicitWidth: Math.floor(Math.min(Overlay.overlay.width * 5 / 6, 500))
+            implicitHeight: Math.floor(Overlay.overlay.height * 6 / 7)
 
             anchors.centerIn: Overlay.overlay
 

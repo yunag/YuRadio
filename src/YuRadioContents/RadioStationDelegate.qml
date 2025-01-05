@@ -103,7 +103,7 @@ Loader {
                     sourceSize: Qt.size(height * Screen.devicePixelRatio, height * Screen.devicePixelRatio)
 
                     fillMode: Image.PreserveAspectFit
-                    smooth: false
+                    smooth: !root.view.moving
 
                     Image {
                         anchors {

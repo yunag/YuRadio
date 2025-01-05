@@ -125,8 +125,8 @@ StackViewPage {
         sourceComponent: HistorySearchFilterDialog {
             id: searchFilterDialog
 
-            implicitWidth: Math.min(Overlay.overlay.width * 5 / 6, 500)
-            implicitHeight: Overlay.overlay.height * 5 / 6
+            implicitWidth: Math.floor(Math.min(Overlay.overlay.width * 5 / 6, 500))
+            implicitHeight: Math.floor(Overlay.overlay.height * 5 / 6)
 
             anchors.centerIn: Overlay.overlay
         }
