@@ -36,30 +36,32 @@ class RadioPlayer : public QObject {
   Q_PROPERTY(MediaItem mediaItem READ mediaItem WRITE setMediaItem NOTIFY
                mediaItemChanged FINAL)
   Q_PROPERTY(
-    float volume READ volume WRITE setVolume NOTIFY volumeChanged FINAL)
+    qreal volume READ volume WRITE setVolume NOTIFY volumeChanged FINAL)
   Q_PROPERTY(bool loading READ isLoading NOTIFY loadingChanged FINAL)
   Q_PROPERTY(bool playing READ isPlaying NOTIFY playingChanged)
   Q_PROPERTY(
     PlaybackState playbackState READ playbackState NOTIFY playbackStateChanged)
+  Q_PROPERTY(MediaStatus mediaStatus READ mediaStatus NOTIFY mediaStatusChanged)
   Q_PROPERTY(Error error READ error NOTIFY errorChanged)
   Q_PROPERTY(QString errorString READ errorString NOTIFY errorChanged)
-  Q_PROPERTY(bool canHandleMediaKeys READ canHandleMediaKeys CONSTANT)
   Q_PROPERTY(AudioStreamRecorder *audioStreamRecorder READ audioStreamRecorder
                WRITE setAudioStreamRecorder NOTIFY audioStreamRecorderChanged)
+  Q_PROPERTY(bool stopOnPause READ stopOnPause WRITE setStopOnPause NOTIFY
+               stopOnPauseChanged)
   QML_ELEMENT
 
 public:
   explicit RadioPlayer(QObject *parent = nullptr);
 
   enum PlaybackState {
-    StoppedState,
-    PlayingState,
+    PlayingState = 0,
     PausedState,
+    StoppedState,
   };
   Q_ENUM(PlaybackState)
 
   enum Error {
-    NoError,
+    NoError = 0,
     ResourceError,
     FormatError,
     NetworkError,
@@ -67,17 +69,23 @@ public:
   };
   Q_ENUM(Error)
 
-  enum ToggleBehaviour {
-    PlayPauseBehaviour,
-    PlayStopBehaviour,
+  enum MediaStatus {
+    NoMedia = 0,
+    LoadingMedia,
+    LoadedMedia,
+    InvalidMedia,
+    EndOfFile,
   };
-  Q_ENUM(ToggleBehaviour)
+  Q_ENUM(MediaStatus)
 
 public slots:
   void play();
-  void toggle(ToggleBehaviour behaviour = PlayPauseBehaviour);
   void pause();
   void stop();
+
+  /* Useful when user wants to stop player with `MediaPlayerService` */
+  void setStopOnPause(bool stop);
+  bool stopOnPause() const;
 
   static MediaItem constructMediaItem();
 
@@ -88,14 +96,14 @@ public slots:
   bool isLoading() const;
 
   PlaybackState playbackState() const;
+  MediaStatus mediaStatus() const;
+
   Error error() const;
   QString errorString() const;
   bool isPlaying() const;
 
-  float volume() const;
-  void setVolume(float newVolume);
-
-  bool canHandleMediaKeys() const;
+  qreal volume() const;
+  void setVolume(qreal newVolume);
 
   AudioStreamRecorder *audioStreamRecorder() const;
   void setAudioStreamRecorder(AudioStreamRecorder *recorder);
@@ -111,9 +119,12 @@ signals:
   void audioOutputChanged();
   void volumeChanged();
   void mediaItemChanged();
+  void mediaStatusChanged();
+  void stopOnPauseChanged();
 
 private:
   PlatformRadioController *m_controller;
+  bool m_stopOnPause;
 };
 
 #endif /* !RADIOPLAYER_H */

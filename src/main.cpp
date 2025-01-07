@@ -1,6 +1,10 @@
 #include "application.h"
 
 int main(int argc, char *argv[]) {
+  if (qEnvironmentVariableIsEmpty("ANDROID_OPENSSL_SUFFIX")) {
+    /* Needed by Qt to load correct OpenSSL version */
+    qputenv("ANDROID_OPENSSL_SUFFIX", "34");
+  }
   if (qEnvironmentVariableIsEmpty("QT_LOGGING_RULES")) {
     qputenv("QT_LOGGING_RULES",
             "YuRadio.*.debug=true\nHotreloader.*.info=false\nYuRadio."

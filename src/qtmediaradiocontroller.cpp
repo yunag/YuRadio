@@ -1,5 +1,5 @@
 #include <QLoggingCategory>
-Q_LOGGING_CATEGORY(basicRadioControllerLog, "YuRadio.BasicRadioController")
+Q_LOGGING_CATEGORY(qtMediaControllerLog, "YuRadio.QtMediaRadioController")
 
 #include <QAudioDevice>
 #include <QAudioOutput>
@@ -10,13 +10,13 @@ Q_LOGGING_CATEGORY(basicRadioControllerLog, "YuRadio.BasicRadioController")
 #include <QMediaFormat>
 #include <QMediaMetaData>
 
-#include "basicradiocontroller.h"
+#include "qtmediaradiocontroller.h"
 #include "radioinforeaderproxyserver.h"
 
 using namespace Qt::StringLiterals;
 
 static RadioPlayer::PlaybackState
-mediaPlayerStateToRadioPlayer(QMediaPlayer::PlaybackState state) {
+getRadioPlayerPlaybackState(QMediaPlayer::PlaybackState state) {
   switch (state) {
     case QMediaPlayer::StoppedState:
       return RadioPlayer::StoppedState;
@@ -29,8 +29,7 @@ mediaPlayerStateToRadioPlayer(QMediaPlayer::PlaybackState state) {
   return RadioPlayer::StoppedState;
 }
 
-static RadioPlayer::Error
-mediaPlayerErrorToRadioPlayer(QMediaPlayer::Error error) {
+static RadioPlayer::Error getRadioPlayerError(QMediaPlayer::Error error) {
   switch (error) {
     case QMediaPlayer::NoError:
       return RadioPlayer::NoError;
@@ -47,7 +46,32 @@ mediaPlayerErrorToRadioPlayer(QMediaPlayer::Error error) {
   return RadioPlayer::NoError;
 }
 
-BasicRadioController::BasicRadioController(QObject *parent)
+static RadioPlayer::MediaStatus
+getRadioPlayerMediaStatus(QMediaPlayer::MediaStatus error) {
+  switch (error) {
+    case QMediaPlayer::NoMedia:
+    case QMediaPlayer::StalledMedia:
+      return RadioPlayer::NoMedia;
+
+    case QMediaPlayer::InvalidMedia:
+      return RadioPlayer::InvalidMedia;
+
+    case QMediaPlayer::BufferingMedia:
+    case QMediaPlayer::BufferedMedia:
+    case QMediaPlayer::LoadingMedia:
+      return RadioPlayer::LoadingMedia;
+
+    case QMediaPlayer::LoadedMedia:
+      return RadioPlayer::LoadedMedia;
+
+    case QMediaPlayer::EndOfMedia:
+      return RadioPlayer::EndOfFile;
+  }
+  Q_UNREACHABLE();
+  return RadioPlayer::NoMedia;
+}
+
+QtMediaRadioController::QtMediaRadioController(QObject *parent)
     : PlatformRadioController(parent),
       m_proxyServer(new RadioInfoReaderProxyServer),
       m_mediaPlayer(new QMediaPlayer(this)),
@@ -60,32 +84,36 @@ BasicRadioController::BasicRadioController(QObject *parent)
   auto *audioOutput = new QAudioOutput(this);
   m_mediaPlayer->setAudioOutput(audioOutput);
   connect(audioOutput, &QAudioOutput::volumeChanged, this,
-          [this](float volume) { PlatformRadioController::setVolume(volume); });
+          [this](float volume) {
+    PlatformRadioController::setVolume(volume);
+  });
 
   connect(this, &PlatformRadioController::audioStreamRecorderChanged, this,
-          &BasicRadioController::onAudioStreamRecorderChanged);
+          &QtMediaRadioController::onAudioStreamRecorderChanged);
 
   connect(m_proxyServer, &RadioInfoReaderProxyServer::icyMetaDataChanged, this,
           [this](const QVariantMap &icyMetaData) {
     setStreamTitle(icyMetaData[u"StreamTitle"_s].toString());
   });
   connect(m_proxyServer, &RadioInfoReaderProxyServer::loadingChanged, this,
-          [this](bool loading) { setIsLoading(loading); });
+          [this](bool loading) {
+    setIsLoading(loading);
+  });
   connect(m_mediaDevices, &QMediaDevices::audioOutputsChanged, this, [this]() {
     m_mediaPlayer->audioOutput()->setDevice(
       QMediaDevices::defaultAudioOutput());
   });
   connect(m_mediaPlayer, &QMediaPlayer::mediaStatusChanged, this,
-          &BasicRadioController::mediaStatusChanged);
+          &QtMediaRadioController::mediaStatusChanged);
   connect(m_mediaPlayer, &QMediaPlayer::playbackStateChanged, this,
           [this](QMediaPlayer::PlaybackState state) {
-    qCDebug(basicRadioControllerLog) << "Playback State:" << state;
-    setPlaybackState(mediaPlayerStateToRadioPlayer(state));
+    qCDebug(qtMediaControllerLog) << "Playback State:" << state;
+    setPlaybackState(getRadioPlayerPlaybackState(state));
   });
   connect(m_mediaPlayer, &QMediaPlayer::errorOccurred, this,
           [this](QMediaPlayer::Error error, const QString &message) {
-    qCWarning(basicRadioControllerLog) << error << message;
-    setError(mediaPlayerErrorToRadioPlayer(error), message);
+    qCWarning(qtMediaControllerLog) << error << message;
+    setError(getRadioPlayerError(error), message);
   });
 
   m_proxyServerThread.setObjectName("RadioInfoReaderProxyServer Thread"_L1);
@@ -93,12 +121,12 @@ BasicRadioController::BasicRadioController(QObject *parent)
   m_proxyServerThread.start();
 }
 
-BasicRadioController::~BasicRadioController() {
+QtMediaRadioController::~QtMediaRadioController() {
   m_proxyServerThread.quit();
   m_proxyServerThread.wait();
 }
 
-void BasicRadioController::play() {
+void QtMediaRadioController::play() {
   const bool mediaLoading =
     QList<QMediaPlayer::MediaStatus>{
       QMediaPlayer::LoadingMedia,
@@ -118,40 +146,40 @@ void BasicRadioController::play() {
   m_mediaPlayer->play();
 }
 
-void BasicRadioController::stop() {
+void QtMediaRadioController::stop() {
   m_mediaPlayer->stop();
   m_mediaPlayer->setSource({});
 }
 
-void BasicRadioController::pause() {
+void QtMediaRadioController::pause() {
   m_mediaPlayer->pause();
 }
 
-void BasicRadioController::setMediaItem(const MediaItem &mediaItem) {
+void QtMediaRadioController::setMediaItem(const MediaItem &mediaItem) {
   processMediaItem(mediaItem);
 
   PlatformRadioController::setMediaItem(mediaItem);
 }
 
-void BasicRadioController::setVolume(float volume) {
-  m_mediaPlayer->audioOutput()->setVolume(volume);
+void QtMediaRadioController::setVolume(qreal volume) {
+  m_mediaPlayer->audioOutput()->setVolume(static_cast<float>(volume));
 }
 
-void BasicRadioController::processMediaItem(const MediaItem &mediaItem) {
+void QtMediaRadioController::processMediaItem(const MediaItem &mediaItem) {
   if (mediaItem.source.isValid()) {
     m_proxyServer->setTargetSource(mediaItem.source);
     m_mediaPlayer->setSource(m_proxyServer->sourceUrl());
   }
 }
 
-void BasicRadioController::reconnectMediaPlayer() {
+void QtMediaRadioController::reconnectMediaPlayer() {
   m_mediaPlayer->setSource({});
   m_mediaPlayer->setSource(m_proxyServer->sourceUrl());
 }
 
-void BasicRadioController::mediaStatusChanged(
+void QtMediaRadioController::mediaStatusChanged(
   QMediaPlayer::MediaStatus status) {
-  qCDebug(basicRadioControllerLog)
+  qCDebug(qtMediaControllerLog)
     << "Media Status:" << status << m_mediaPlayer->error();
 
   if (status == QMediaPlayer::EndOfMedia && !m_mediaPlayer->error()) {
@@ -159,9 +187,11 @@ void BasicRadioController::mediaStatusChanged(
 
     m_mediaPlayer->play();
   }
+
+  setMediaStatus(getRadioPlayerMediaStatus(status));
 }
 
-void BasicRadioController::onAudioStreamRecorderChanged() {
+void QtMediaRadioController::onAudioStreamRecorderChanged() {
   connect(m_recorder, &AudioStreamRecorder::recordingChanged, this, [this]() {
     m_proxyServer->enableCapturing(m_recorder->recording());
   });

@@ -1,2 +1,3 @@
-target_sources(YuRadio PRIVATE linuxradiocontroller.h linuxradiocontroller.cpp)
+target_sources(YuRadio PRIVATE linuxmediaplayerservice.h
+                               linuxmediaplayerservice.cpp)
 target_link_libraries(YuRadio PRIVATE qtmpris)

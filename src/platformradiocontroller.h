@@ -21,17 +21,14 @@ public:
   virtual void pause() = 0;
   virtual void stop() = 0;
 
-  virtual void toggle(
-    RadioPlayer::ToggleBehaviour behaviour = RadioPlayer::PlayPauseBehaviour);
-
-  virtual void setVolume(float volume);
-  virtual float volume() const;
+  virtual void setVolume(qreal volume);
+  virtual qreal volume() const;
 
   virtual bool isPlaying() const;
   virtual bool isLoading() const;
   virtual bool canPlay() const;
 
-  virtual bool canHandleMediaKeys() const;
+  virtual RadioPlayer::MediaStatus mediaStatus() const;
 
   virtual void setAudioStreamRecorder(AudioStreamRecorder *recorder);
   virtual AudioStreamRecorder *audioStreamRecorder() const;
@@ -47,9 +44,11 @@ signals:
   void streamTitleChanged();
   void volumeChanged();
   void audioStreamRecorderChanged();
+  void mediaStatusChanged();
 
 protected:
   void setError(RadioPlayer::Error error, const QString &errorString);
+  void setMediaStatus(RadioPlayer::MediaStatus status);
   void setPlaybackState(RadioPlayer::PlaybackState state);
   void setStreamTitle(const QString &streamTitle);
   void setIsLoading(bool isLoading);
@@ -57,13 +56,14 @@ protected:
 protected:
   QPointer<AudioStreamRecorder> m_recorder = nullptr;
 
+  RadioPlayer::MediaStatus m_mediaStatus;
   RadioPlayer::PlaybackState m_playbackState;
   RadioPlayer::Error m_error;
 
   MediaItem m_mediaItem;
   QString m_errorString;
   QString m_streamTitle;
-  float m_volume;
+  qreal m_volume;
   QUrl m_source;
   bool m_isLoading;
 };

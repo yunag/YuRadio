@@ -119,6 +119,7 @@ qt_add_qml_module(
   images/history.svg
   images/folder.svg)
 
+find_package(Qt6 REQUIRED COMPONENTS ShaderTools)
 qt_add_shaders(
   YuRadioContents
   "shaders"

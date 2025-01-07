@@ -2,7 +2,7 @@
 
 PlatformRadioController::PlatformRadioController(QObject *parent)
     : QObject(parent), m_playbackState(RadioPlayer::StoppedState),
-      m_error(RadioPlayer::NoError), m_volume(1.0f), m_isLoading(false) {}
+      m_error(RadioPlayer::NoError), m_volume(1.0) {}
 
 PlatformRadioController::~PlatformRadioController() = default;
 
@@ -16,10 +16,12 @@ RadioPlayer::Error PlatformRadioController::error() const {
 
 void PlatformRadioController::setMediaItem(const MediaItem &mediaItem) {
   if (m_mediaItem != mediaItem) {
+    QUrl sourceBefore = m_mediaItem.source;
+
     m_mediaItem = mediaItem;
     emit mediaItemChanged();
 
-    if (m_mediaItem.source != mediaItem.source) {
+    if (sourceBefore != mediaItem.source) {
       setStreamTitle({});
     }
   }
@@ -77,17 +79,17 @@ void PlatformRadioController::setIsLoading(bool isLoading) {
 }
 
 bool PlatformRadioController::isLoading() const {
-  return m_isLoading;
+  return m_mediaStatus == RadioPlayer::LoadingMedia;
 }
 
-void PlatformRadioController::setVolume(float volume) {
+void PlatformRadioController::setVolume(qreal volume) {
   if (!qFuzzyCompare(m_volume, volume)) {
     m_volume = volume;
     emit volumeChanged();
   }
 }
 
-float PlatformRadioController::volume() const {
+qreal PlatformRadioController::volume() const {
   return m_volume;
 }
 
@@ -100,20 +102,22 @@ bool PlatformRadioController::canPlay() const {
   return m_mediaItem.source.isValid();
 }
 
-bool PlatformRadioController::canHandleMediaKeys() const {
-  return false;
+void PlatformRadioController::setMediaStatus(RadioPlayer::MediaStatus status) {
+  if (m_mediaStatus != status) {
+    auto statusBefore = std::exchange(m_mediaStatus, status);
+
+    if (m_mediaStatus == RadioPlayer::LoadingMedia ||
+        statusBefore == RadioPlayer::LoadingMedia) {
+      emit isLoadingChanged();
+    }
+
+    m_mediaStatus = status;
+    emit mediaStatusChanged();
+  }
 }
 
-void PlatformRadioController::toggle(RadioPlayer::ToggleBehaviour behaviour) {
-  if (m_playbackState != RadioPlayer::PlayingState) {
-    play();
-  } else if (behaviour == RadioPlayer::PlayPauseBehaviour) {
-    pause();
-  } else if (behaviour == RadioPlayer::PlayStopBehaviour) {
-    stop();
-  } else {
-    Q_UNREACHABLE();
-  }
+RadioPlayer::MediaStatus PlatformRadioController::mediaStatus() const {
+  return m_mediaStatus;
 }
 
 void PlatformRadioController::setAudioStreamRecorder(

@@ -198,7 +198,7 @@ QString AudioStreamRecorder::recordingName() const {
                              m_startTime)
     .trimmed()
     .removeIf([](QChar c) {
-    return c != QLatin1Char('_') && c != QLatin1Char('-') &&
+    return c != '_'_L1 && c != '-'_L1 &&
            (!c.isLetterOrNumber() || !c.isPrint());
   }).mid(0, 240);
 }
@@ -213,8 +213,9 @@ void AudioStreamRecorder::performCopy(std::unique_ptr<QTemporaryFile> file,
       QString errorString = QString("Failed to open destination file: %1")
                               .arg(saveFile.errorString());
 
-      QMetaObject::invokeMethod(
-        this, [this, errorString]() { setError(errorString); });
+      QMetaObject::invokeMethod(this, [this, errorString]() {
+        setError(errorString);
+      });
 
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
     }
@@ -229,8 +230,9 @@ void AudioStreamRecorder::performCopy(std::unique_ptr<QTemporaryFile> file,
       QString errorString =
         QString("Failed to open temporary file: %1").arg(file->errorString());
 
-      QMetaObject::invokeMethod(
-        this, [this, errorString]() { setError(errorString); });
+      QMetaObject::invokeMethod(this, [this, errorString]() {
+        setError(errorString);
+      });
 
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
     }

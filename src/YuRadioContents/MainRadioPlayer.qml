@@ -11,14 +11,14 @@ RadioPlayer {
     property string stationName
 
     function toggleRadio() {
-        if (AppSettings.pauseButtonBehaviour === "pause") {
-            toggle(RadioPlayer.PlayPauseBehaviour);
-        } else if (AppSettings.pauseButtonBehaviour === "stop") {
-            toggle(RadioPlayer.PlayStopBehaviour);
+        if (!playing) {
+            play();
         } else {
-            console.assert(false, `Unknown option detected for "AppSettings.pauseButtonBehaviour": ${AppSettings.pauseButtonBehaviour}`);
+            pause();
         }
     }
+
+    stopOnPause: AppSettings.pauseButtonBehaviour === "stop"
 
     volume: AppSettings.volume
     onVolumeChanged: {
@@ -44,7 +44,6 @@ RadioPlayer {
             audioStreamRecorder.record();
         }
         stationName = currentItem.name;
-
         const newMediaItem = constructMediaItem();
         if (currentItem.isValid()) {
             newMediaItem.artworkUri = currentItem.favicon;

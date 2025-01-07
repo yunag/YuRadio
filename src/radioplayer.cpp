@@ -1,22 +1,29 @@
+#include <QLoggingCategory>
+Q_LOGGING_CATEGORY(radioPlayerLog, "YuRadio.RadioPlayer")
+
 #include "radioplayer.h"
 
-#ifdef Q_OS_ANDROID
-#include "android/androidradiocontroller.h"
-#elif defined(Q_OS_LINUX)
-#include "linux/linuxradiocontroller.h"
-#else
-#include "basicradiocontroller.h"
-#endif
+#include "ffmpegradiocontroller.h"
 
 #include "platformradiocontroller.h"
 
-RadioPlayer::RadioPlayer(QObject *parent) : QObject(parent) {
-#ifdef Q_OS_ANDROID
-  m_controller = new AndroidRadioController(this);
-#elif defined(Q_OS_LINUX)
-  m_controller = new LinuxRadioController(this);
-#else
-  m_controller = new BasicRadioController(this);
+RadioPlayer::RadioPlayer(QObject *parent)
+    : QObject(parent), m_controller(new FFmpegRadioController(this)) {
+
+#ifdef QT_DEBUG
+  connect(m_controller, &PlatformRadioController::mediaStatusChanged, this,
+          [this]() {
+    qCDebug(radioPlayerLog) << "MediaStatus:" << m_controller->mediaStatus();
+  });
+  connect(m_controller, &PlatformRadioController::errorChanged, this, [this]() {
+    qCDebug(radioPlayerLog).nospace() << "Error: " << m_controller->error()
+                                      << ":" << m_controller->errorString();
+  });
+  connect(m_controller, &PlatformRadioController::playbackStateChanged, this,
+          [this]() {
+    qCDebug(radioPlayerLog)
+      << "PlaybackState:" << m_controller->playbackState();
+  });
 #endif
 
   connect(m_controller, &PlatformRadioController::audioStreamRecorderChanged,
@@ -25,6 +32,8 @@ RadioPlayer::RadioPlayer(QObject *parent) : QObject(parent) {
           &RadioPlayer::volumeChanged);
   connect(m_controller, &PlatformRadioController::mediaItemChanged, this,
           &RadioPlayer::mediaItemChanged);
+  connect(m_controller, &PlatformRadioController::mediaStatusChanged, this,
+          &RadioPlayer::mediaStatusChanged);
   connect(m_controller, &PlatformRadioController::playbackStateChanged, this,
           &RadioPlayer::playbackStateChanged);
   connect(m_controller, &PlatformRadioController::isPlayingChanged, this,
@@ -38,26 +47,29 @@ RadioPlayer::RadioPlayer(QObject *parent) : QObject(parent) {
 }
 
 void RadioPlayer::play() {
-  m_controller->clearErrors();
   if (m_controller->canPlay()) {
     m_controller->play();
   }
 }
 
 void RadioPlayer::pause() {
-  m_controller->pause();
+  if (m_stopOnPause) {
+    m_controller->stop();
+  } else {
+    m_controller->pause();
+  }
 }
 
 void RadioPlayer::stop() {
   m_controller->stop();
 }
 
-void RadioPlayer::toggle(ToggleBehaviour behaviour) {
-  m_controller->toggle(behaviour);
-}
-
 RadioPlayer::PlaybackState RadioPlayer::playbackState() const {
   return m_controller->playbackState();
+}
+
+RadioPlayer::MediaStatus RadioPlayer::mediaStatus() const {
+  return m_controller->mediaStatus();
 }
 
 RadioPlayer::Error RadioPlayer::error() const {
@@ -80,11 +92,11 @@ bool RadioPlayer::isLoading() const {
   return m_controller->isLoading();
 }
 
-float RadioPlayer::volume() const {
+qreal RadioPlayer::volume() const {
   return m_controller->volume();
 }
 
-void RadioPlayer::setVolume(float volume) {
+void RadioPlayer::setVolume(qreal volume) {
   m_controller->setVolume(volume);
 }
 
@@ -94,10 +106,6 @@ MediaItem RadioPlayer::mediaItem() const {
 
 void RadioPlayer::setMediaItem(const MediaItem &mediaItem) {
   m_controller->setMediaItem(mediaItem);
-}
-
-bool RadioPlayer::canHandleMediaKeys() const {
-  return m_controller->canHandleMediaKeys();
 }
 
 MediaItem RadioPlayer::constructMediaItem() {
@@ -110,4 +118,15 @@ AudioStreamRecorder *RadioPlayer::audioStreamRecorder() const {
 
 void RadioPlayer::setAudioStreamRecorder(AudioStreamRecorder *recorder) {
   m_controller->setAudioStreamRecorder(recorder);
+}
+
+void RadioPlayer::setStopOnPause(bool stop) {
+  if (m_stopOnPause != stop) {
+    m_stopOnPause = stop;
+    emit stopOnPauseChanged();
+  }
+}
+
+bool RadioPlayer::stopOnPause() const {
+  return m_stopOnPause;
 }

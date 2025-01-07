@@ -29,13 +29,13 @@ You can:
 In order to build the project, you will need Qt6.7 with some extra dependencies
 listed in the `CMakeLists.txt` files
 
-| Option                  | Description                                                      | Default |
-| :---------------------- | :--------------------------------------------------------------- | :-----: |
-| `BUILD_UIOHOOK`         | Builds uiohook (enables media key support for desktop platforms) |   ON    |
-| `SPOTIFY_CLIENTID`      | Spotify application client id                                    |   ---   |
-| `SPOTIFY_SECRET`        | Spotify application secret                                       |   ---   |
-| `SPOTIFY_CLIENTID_HASH` | Hash for application client id                                   |    0    |
-| `SPOTIFY_SECRET_HASH`   | Hash for application secret                                      |    0    |
+| Option                  | Description                                             | Default |
+| :---------------------- | :------------------------------------------------------ | :-----: |
+| `BUILD_UIOHOOK`         | Builds uiohook (enables media key support for Windows ) |   ON    |
+| `SPOTIFY_CLIENTID`      | Spotify application client id                           |   ---   |
+| `SPOTIFY_SECRET`        | Spotify application secret                              |   ---   |
+| `SPOTIFY_CLIENTID_HASH` | Hash for application client id                          |    0    |
+| `SPOTIFY_SECRET_HASH`   | Hash for application secret                             |    0    |
 
 Spotify is only needed as an additional backend for displaying music information (as in [screenshot](#screenshot-light))
 

@@ -69,10 +69,6 @@ StackViewPage {
 Application uses RadioBrowser API (see <a href="https://api.radio-browser.info/"><font color="${Material.color(Material.Blue)}">radiobrowser</font></a>)
 Since this is a public API, some radio stations may have inappropriate content, so be aware!
 <br/>
-#### MediaPlayer
-In Android, it uses built-in _**ExoPlayer**_ for audio playback.
-
-All other platforms will use Qt's _**QMediaPlayer**_
 `)
 
                     wrapMode: Text.Wrap

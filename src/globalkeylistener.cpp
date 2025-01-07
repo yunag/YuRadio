@@ -11,9 +11,11 @@ Q_LOGGING_CATEGORY(globalKeyListenerLog, "YuRadio.GlobalKeyListener")
 
 using namespace Qt::StringLiterals;
 
+namespace {
+
 Q_GLOBAL_STATIC(GlobalKeyListener, g_keyListener);
 
-static inline Qt::Key UioHookKeyToQt(uint16_t keycode) {
+inline Qt::Key getQtKey(uint16_t keycode) {
   switch (keycode) {
     /* TODO: Add supported keys */
     case VC_Y:
@@ -33,7 +35,7 @@ static inline Qt::Key UioHookKeyToQt(uint16_t keycode) {
   }
 }
 
-static inline Qt::KeyboardModifiers UioHookModifierToQt(uint16_t modifiers) {
+inline Qt::KeyboardModifiers getQtKeyboardModifiers(uint16_t modifiers) {
   Qt::KeyboardModifiers qtModifiers = Qt::NoModifier;
 
   const auto convert_modifier = [&](int uiohookMask,
@@ -52,13 +54,13 @@ static inline Qt::KeyboardModifiers UioHookModifierToQt(uint16_t modifiers) {
   return qtModifiers;
 }
 
-static void uiohookEventCallback(uiohook_event *const event) {
+void uiohookEventCallback(uiohook_event *const event) {
   keyboard_event_data &keyboard = event->data.keyboard;
 
   switch (event->type) {
     case EVENT_KEY_PRESSED:
-      emit g_keyListener->keyPressed(UioHookKeyToQt(keyboard.keycode),
-                                     UioHookModifierToQt(event->mask));
+      emit g_keyListener->keyPressed(getQtKey(keyboard.keycode),
+                                     getQtKeyboardModifiers(event->mask));
       qCInfo(globalKeyListenerLog)
         << QString("GlobalKeyPress keycode=%1, rawcode=%2")
              .arg(keyboard.keycode)
@@ -66,8 +68,8 @@ static void uiohookEventCallback(uiohook_event *const event) {
       break;
 
     case EVENT_KEY_RELEASED:
-      emit g_keyListener->keyReleased(UioHookKeyToQt(keyboard.keycode),
-                                      UioHookModifierToQt(event->mask));
+      emit g_keyListener->keyReleased(getQtKey(keyboard.keycode),
+                                      getQtKeyboardModifiers(event->mask));
       qCInfo(globalKeyListenerLog)
         << QString("GlobalKeyRelease keycode=%1, rawcode=%2")
              .arg(keyboard.keycode)
@@ -75,8 +77,8 @@ static void uiohookEventCallback(uiohook_event *const event) {
       break;
 
     case EVENT_KEY_TYPED:
-      emit g_keyListener->keyTyped(UioHookKeyToQt(keyboard.keycode),
-                                   UioHookModifierToQt(event->mask));
+      emit g_keyListener->keyTyped(getQtKey(keyboard.keycode),
+                                   getQtKeyboardModifiers(event->mask));
       qCInfo(globalKeyListenerLog)
         << QString("GlobalKeyType keycode=%1, rawcode=%2")
              .arg(keyboard.keycode)
@@ -86,6 +88,26 @@ static void uiohookEventCallback(uiohook_event *const event) {
       break;
   }
 }
+
+QKeySequence valueToKeySequence(const QVariant &value,
+                                const GlobalShortcut *const shortcut) {
+  if (value.userType() == QMetaType::Int) {
+    const QVector<QKeySequence> s = QKeySequence::keyBindings(
+      static_cast<QKeySequence::StandardKey>(value.toInt()));
+    if (s.size() > 1) {
+      const QString templateString = QString::fromUtf16(
+        u"Shortcut: Only binding to one of multiple key bindings associated "
+        u"with %1.");
+      qmlWarning(shortcut) << templateString.arg(
+        static_cast<QKeySequence::StandardKey>(value.toInt()));
+    }
+    return s.size() > 0 ? s[0] : QKeySequence{};
+  }
+
+  return QKeySequence::fromString(value.toString());
+}
+
+}  // namespace
 
 GlobalKeyListener::GlobalKeyListener() : QObject(nullptr) {
   m_thread = std::make_unique<QThread>();
@@ -209,24 +231,6 @@ GlobalShortcut::GlobalShortcut(QObject *parent)
       emit activated();
     }
   });
-}
-
-static QKeySequence valueToKeySequence(const QVariant &value,
-                                       const GlobalShortcut *const shortcut) {
-  if (value.userType() == QMetaType::Int) {
-    const QVector<QKeySequence> s = QKeySequence::keyBindings(
-      static_cast<QKeySequence::StandardKey>(value.toInt()));
-    if (s.size() > 1) {
-      const QString templateString = QString::fromUtf16(
-        u"Shortcut: Only binding to one of multiple key bindings associated "
-        u"with %1.");
-      qmlWarning(shortcut) << templateString.arg(
-        static_cast<QKeySequence::StandardKey>(value.toInt()));
-    }
-    return s.size() > 0 ? s[0] : QKeySequence{};
-  }
-
-  return QKeySequence::fromString(value.toString());
 }
 
 QVariant GlobalShortcut::sequence() const {

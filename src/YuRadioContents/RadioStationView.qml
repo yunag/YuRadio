@@ -95,7 +95,7 @@ FilledGridView {
 
         onClicked: {
             if (currentStation) {
-                MainRadioPlayer.toggle();
+                MainRadioPlayer.toggleRadio();
             } else {
                 RadioBrowser.click(delegate.uuid);
                 MainRadioPlayer.currentItem = root.stationAtIndex(delegate.index);

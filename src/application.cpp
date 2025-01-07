@@ -6,7 +6,6 @@ Q_LOGGING_CATEGORY(applicationLog, "YuRadio.Application")
 #include <QQuickStyle>
 
 #ifdef Q_OS_ANDROID
-#include "android/nativemediacontroller.h"
 #include "android/notificationclient.h"
 #include "android/virtualkeyboardlistener.h"
 #else
@@ -26,6 +25,8 @@ Q_LOGGING_CATEGORY(applicationLog, "YuRadio.Application")
 #include "application.h"
 #include "applicationconfig.h"
 #include "logging.h"
+#include "mediaplayerservice.h"
+#include "radioplayer.h"
 
 #include "network/networkmanagerfactory.h"
 
@@ -40,8 +41,6 @@ Application::Application(int argc, char **argv)
 
   qCInfo(applicationLog).noquote()
     << "Version:" << QCoreApplication::applicationVersion();
-  qCInfo(applicationLog) << "Device supports OpenSSL:"
-                         << QSslSocket::supportsSsl();
   qCInfo(applicationLog).noquote()
     << "CPU Architecture:" << QSysInfo::currentCpuArchitecture();
   qCInfo(applicationLog).noquote()
@@ -49,10 +48,16 @@ Application::Application(int argc, char **argv)
   qCInfo(applicationLog).noquote() << "Build ABI:" << QSysInfo::buildAbi();
   qCInfo(applicationLog).noquote()
     << "Platform:" << QSysInfo::prettyProductName();
+
+  if (QSslSocket::supportsSsl()) {
+    qCInfo(applicationLog) << "Device supports OpenSSL";
+  } else {
+    qCWarning(applicationLog) << "OpenSSL is not supported!";
+  }
 #ifdef UIOHOOK_SUPPORTED
   qCInfo(applicationLog) << "Uiohook is enabled";
 #else
-  qCInfo(applicationLog) << "Uiohook is disabled";
+  qCWarning(applicationLog) << "Uiohook is disabled";
 #endif
 
 #ifdef Q_OS_ANDROID
@@ -61,7 +66,11 @@ Application::Application(int argc, char **argv)
   bool systemTrayIconAvailable = QSystemTrayIcon::isSystemTrayAvailable();
 #endif /* Q_OS_ANDROID */
 
-  qCInfo(applicationLog) << "System tray available:" << systemTrayIconAvailable;
+  if (systemTrayIconAvailable) {
+    qCInfo(applicationLog) << "System tray is available";
+  } else {
+    qCInfo(applicationLog) << "System tray is not available";
+  }
 
   bool networkInformationBackendAvailable =
     QNetworkInformation::loadDefaultBackend();
@@ -89,6 +98,11 @@ Application::Application(int argc, char **argv)
 #else
   m_engine->loadFromModule(u"Main"_s, u"Main"_s);
 #endif /* QT_DEBUG */
+
+  auto *player = m_engine->singletonInstance<RadioPlayer *>("YuRadioContents",
+                                                            "MainRadioPlayer");
+  assert(player != nullptr);
+  MediaPlayerService::registerService(player);
 }
 
 Application::~Application() = default;
@@ -104,7 +118,6 @@ void Application::initializePlatform() {
   m_engine->rootContext()->setContextProperty("NotificationClient",
                                               notificationClient);
 
-  NativeMediaController::registerNativeMethods();
   VirtualKeyboardListener::registerNativeMethods();
 #endif /* Q_OS_ANDROID */
 }
@@ -112,7 +125,7 @@ void Application::initializePlatform() {
 QmlApplication::QmlApplication(QObject *parent) : QObject(parent) {}
 
 void QmlApplication::applicationLoaded() {
-  qCInfo(applicationLog) << "Qml application loaded";
+  qCInfo(applicationLog) << "Qml application is loaded";
 
 #ifdef Q_OS_ANDROID
   QJniObject context(QNativeInterface::QAndroidApplication::context());

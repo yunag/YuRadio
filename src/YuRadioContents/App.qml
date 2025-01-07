@@ -372,20 +372,6 @@ YuRadioWindow {
         onActivated: root.backButtonPressed()
     }
 
-    Shortcut {
-        sequences: ["Media Play", "Media Pause", "Toggle Media Play/Pause", "Media Stop"]
-        context: Qt.ApplicationShortcut
-        enabled: {
-            if (MainRadioPlayer.canHandleMediaKeys) {
-                return false;
-            }
-            return !mediaPlayGlobalShortcut.enabled;
-        }
-        onActivated: {
-            MainRadioPlayer.toggleRadio();
-        }
-    }
-
     Loader {
         id: messageDialogLoader
 
@@ -433,16 +419,6 @@ YuRadioWindow {
         }
 
         onLoaded: messageDialog.open()
-    }
-
-    GlobalShortcut {
-        id: mediaPlayGlobalShortcut
-
-        enabled: !MainRadioPlayer.canHandleMediaKeys
-        sequence: "Media Play"
-        onActivated: {
-            MainRadioPlayer.toggleRadio();
-        }
     }
 
     Loader {

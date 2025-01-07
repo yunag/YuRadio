@@ -17,8 +17,9 @@ using namespace std::chrono_literals;
 /**
  * @brief Supported Image file types for Android
  */
-const QStringList k_supportedFileFormats = {".bmp",  ".gif",  ".jpg",  ".png",
-                                            ".webp", ".heif", ".heic", ".avif"};
+const QStringList k_supportedFileFormats = {
+  ".bmp", ".gif", ".jpg", ".png", ".webp", ".heif", ".heic", ".avif",
+};
 
 AndroidMediaSessionImageProvider::AndroidMediaSessionImageProvider(
   QObject *parent)
@@ -36,7 +37,7 @@ AndroidMediaSessionImageProvider::AndroidMediaSessionImageProvider(
     return;
   }
 
-  m_networkManager->setTransferTimeout(5s);
+  m_networkManager->setTransferTimeout(1s);
 
   connect(m_server, &QTcpServer::newConnection, this,
           &AndroidMediaSessionImageProvider::clientConnected);
@@ -51,8 +52,9 @@ void AndroidMediaSessionImageProvider::clientConnected() {
 
   QTcpSocket *client = m_server->nextPendingConnection();
 
-  connect(client, &QTcpSocket::readyRead, this,
-          [this, client]() { clientReadyRead(client); });
+  connect(client, &QTcpSocket::readyRead, this, [this, client]() {
+    clientReadyRead(client);
+  });
   connect(client, &QTcpSocket::disconnected, client, &QObject::deleteLater);
 }
 
@@ -74,7 +76,7 @@ QUrl AndroidMediaSessionImageProvider::imageUrl() const {
 }
 
 void AndroidMediaSessionImageProvider::clientReadyRead(QTcpSocket *client) {
-  (void)client->readAll();
+  qCDebug(androidMediaSessionLog) << "Client Message:" << client->readAll();
 
   if (!m_imageSource.isValid()) {
     clientWriteDefaultImage(client);
@@ -85,28 +87,47 @@ void AndroidMediaSessionImageProvider::clientReadyRead(QTcpSocket *client) {
   if (!fileSuffix.isEmpty() &&
       !k_supportedFileFormats.contains("." + fileSuffix)) {
     qCDebug(androidMediaSessionLog)
-      << "FileFormat not supported:" << fileSuffix;
+      << "FileFormat is not supported:" << fileSuffix;
     clientWriteDefaultImage(client);
     return;
   }
 
   QNetworkRequest request(m_imageSource);
+  qCDebug(androidMediaSessionLog) << "Requesting image:" << m_imageSource;
 
   QNetworkReply *reply = m_networkManager->get(request);
-  connect(reply, &QNetworkReply::finished, client, [this, reply, client]() {
-    if (reply->error() ||
-        !m_supportedMimeTypes.contains(reply->rawHeader("Content-Type"_ba))) {
+  connect(reply, &QNetworkReply::readyRead, client, [this, reply, client]() {
+    if (!m_supportedMimeTypes.contains(reply->rawHeader("Content-Type"_ba))) {
+      qCWarning(androidMediaSessionLog) << "Content-Type is not supported:"
+                                        << reply->rawHeader("Content-Type"_ba);
 
       clientWriteDefaultImage(client);
     } else {
       client->write("HTTP/1.1 200 OK\r\n"_ba);
 
       for (const QByteArray &header : reply->rawHeaderList()) {
-        client->write(header + ": "_ba + reply->rawHeader(header) + "\r\n"_ba);
+        if (header != "Transfer-Encoding"_ba) {
+          client->write(header + ": "_ba + reply->rawHeader(header) +
+                        "\r\n"_ba);
+        }
       }
       client->write("\r\n"_ba);
+
       client->write(reply->readAll());
+      connect(reply, &QNetworkReply::readyRead, client, [reply, client]() {
+        client->write(reply->readAll());
+      });
     }
+  }, Qt::SingleShotConnection);
+
+  connect(reply, &QNetworkReply::errorOccurred, client,
+          [this, client](QNetworkReply::NetworkError err) {
+    qCWarning(androidMediaSessionLog) << "errorOccurred:" << err;
+    clientWriteDefaultImage(client);
+  });
+  connect(reply, &QNetworkReply::finished, reply, [reply]() {
+    qCDebug(androidMediaSessionLog)
+      << "Request finished with errorCode:" << reply->error();
   });
   connect(client, &QTcpSocket::disconnected, reply, &QNetworkReply::abort);
   connect(client, &QTcpSocket::readyRead, reply, &QNetworkReply::abort);

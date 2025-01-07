@@ -1,5 +1,5 @@
-#ifndef BASICRADIOCONTROLLER_H
-#define BASICRADIOCONTROLLER_H
+#ifndef QTMEDIARADIOCONTROLLER_H
+#define QTMEDIARADIOCONTROLLER_H
 
 #include <QMediaPlayer>
 
@@ -8,18 +8,18 @@
 class QMediaDevices;
 class RadioInfoReaderProxyServer;
 
-class BasicRadioController : public PlatformRadioController {
+class QtMediaRadioController : public PlatformRadioController {
   Q_OBJECT
 
 public:
-  explicit BasicRadioController(QObject *parent = nullptr);
-  ~BasicRadioController() override;
+  explicit QtMediaRadioController(QObject *parent = nullptr);
+  ~QtMediaRadioController() override;
 
   void play() override;
   void stop() override;
   void pause() override;
 
-  void setVolume(float volume) override;
+  void setVolume(qreal volume) override;
   void setMediaItem(const MediaItem &mediaItem) override;
 
 private slots:
@@ -39,4 +39,4 @@ protected:
   QMediaDevices *m_mediaDevices;
 };
 
-#endif /* !BASICRADIOCONTROLLER_H */
+#endif /* !QTMEDIARADIOCONTROLLER_H */

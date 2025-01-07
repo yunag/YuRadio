@@ -9,22 +9,7 @@ include(CMakeDependentOption)
 
 project(YuRadio VERSION ${YURADIO_VERSION_CANONICAL})
 
-# NOTE: Following line required by `qt_generate_deploy_qml_app_script`
-find_package(
-  Qt6 REQUIRED
-  COMPONENTS Core
-             Svg
-             Sql
-             Qml
-             Quick
-             QuickControls2
-             Multimedia
-             ShaderTools
-             Location
-             LinguistTools
-             Widgets
-             WebSockets
-             NetworkAuth)
+find_package(Qt6 REQUIRED COMPONENTS Core Qml Linguist)
 
 qt_standard_project_setup(
   REQUIRES
@@ -38,8 +23,8 @@ qt_standard_project_setup(
 
 cmake_dependent_option(
   BUILD_UIOHOOK
-  "Build the uiohook library(enables media key support for desktop platforms)"
-  ON "LINUX OR WIN32 OR APPLE" OFF)
+  "Build the uiohook library(enables media key support for Windows)" ON "WIN32"
+  OFF)
 option(BUILD_HOTRELOADER "Build hotreloader" OFF)
 
 if(BUILD_UIOHOOK)

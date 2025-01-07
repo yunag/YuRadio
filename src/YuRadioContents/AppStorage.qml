@@ -11,6 +11,7 @@ QtObject {
 
     property string lastStreamTitle
     property date lastStreamTitleDate
+    property radiostation lastStation
     property bool streamTitleHistoryDirty: false
 
     property list<radiostation> bookmarkModel
@@ -45,16 +46,18 @@ QtObject {
         target: MainRadioPlayer
 
         function onStreamTitleChanged() {
-            if (root.lastStreamTitle.length > 0) {
-                root.streamTitleHistoryDirty |= Storage.addTrackHistory(root.lastStreamTitle, MainRadioPlayer.currentItem.name, MainRadioPlayer.currentItem.favicon, root.lastStreamTitleDate);
+            if (root.lastStreamTitle.length > 0 && root.lastStation.isValid()) {
+                root.streamTitleHistoryDirty |= Storage.addTrackHistory(root.lastStreamTitle, root.lastStation.name, root.lastStation.favicon, root.lastStreamTitleDate);
             }
             root.lastStreamTitle = MainRadioPlayer.streamTitle;
+            root.lastStation = MainRadioPlayer.currentItem;
             root.lastStreamTitleDate = new Date();
         }
 
         function onCurrentItemChanged() {
             root.lastStreamTitle = "";
             root.lastStreamTitleDate = new Date();
+            root.lastStation = RadioStationFactory.create();
         }
     }
 }

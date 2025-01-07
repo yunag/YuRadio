@@ -1,18 +1,47 @@
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
 qt_add_executable(YuRadio main.cpp)
 
-add_subdirectory(network)
+target_compile_features(YuRadio PUBLIC cxx_std_20)
+set_target_properties(
+  YuRadio
+  PROPERTIES CXX_SCAN_FOR_MODULES OFF
+             CXX_STANDARD_REQUIRED ON
+             CXX_EXTENSIONS OFF)
+
 add_subdirectory(YuRadioContents)
 
 if(ANDROID)
+  include(FetchContent)
+  FetchContent_Declare(
+    android_ffmpeg_openssl
+    DOWNLOAD_EXTRACT_TIMESTAMP true
+    URL "https://github.com/yunag/YuRadio-deps/releases/download/2.0.0/android-ffmpeg-openssl-${CMAKE_ANDROID_ARCH_ABI}.zip"
+  )
+  FetchContent_MakeAvailable(android_ffmpeg_openssl)
+
+  if(NOT OPENSSL_ROOT_DIR)
+    set(OPENSSL_ROOT_DIR ${android_ffmpeg_openssl_SOURCE_DIR}/openssl)
+  endif()
+
+  if(NOT FFMPEG_ROOT_DIR)
+    set(FFMPEG_ROOT_DIR ${android_ffmpeg_openssl_SOURCE_DIR}/ffmpeg)
+  endif()
+
+  # Need to set CMAKE_FIND_ROOT_PATH when cross-compiling
+  list(APPEND CMAKE_FIND_ROOT_PATH ${FFMPEG_ROOT_DIR})
+
+  list(APPEND android_extra_libs "${OPENSSL_ROOT_DIR}/lib/libcrypto34.so"
+       "${OPENSSL_ROOT_DIR}/lib/libssl34.so")
+  set_target_properties(YuRadio PROPERTIES QT_ANDROID_EXTRA_LIBS
+                                           "${android_extra_libs}")
   add_subdirectory(android)
 endif()
 
 if(LINUX)
   add_subdirectory(linux)
 endif()
+
+add_subdirectory(network)
+add_subdirectory(audio)
 
 if(SPOTIFY_CLIENTID
    AND SPOTIFY_SECRET
@@ -30,8 +59,6 @@ configure_file(applicationconfig.h.in
 target_include_directories(
   YuRadio PUBLIC "$<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/config>")
 
-set(basic_controller_sources basicradiocontroller.cpp basicradiocontroller.h)
-
 qt_add_qml_module(
   YuRadio
   URI
@@ -45,12 +72,12 @@ qt_add_qml_module(
   application.cpp
   algorithm.h
   algorithm.cpp
+  mediaplayerservice.h
+  mediaplayerservice.cpp
   audiostreamrecorder.h
   audiostreamrecorder.cpp
   downloadspeedmeasurer.h
   downloadspeedmeasurer.cpp
-  radioinforeaderproxyserver.h
-  radioinforeaderproxyserver.cpp
   radioplayer.h
   radioplayer.cpp
   musicinfomodel.h
@@ -82,9 +109,16 @@ qt_add_qml_module(
   obf.h
   obf.cpp
   memoryliterals.h
-  "$<$<NOT:$<PLATFORM_ID:Android>>:${basic_controller_sources}>"
+  ffmpegradiocontroller.h
+  ffmpegradiocontroller.cpp
   DEPENDENCIES
   network)
+
+if(OFF) # TODO add option
+  target_sources(
+    YuRadio PRIVATE qtmediaradiocontroller.cpp qtmediaradiocontroller.h
+                    radioinforeaderproxyserver.h radioinforeaderproxyserver.cpp)
+endif()
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1. If
 # you are developing for iOS or macOS you should consider setting an explicit,
@@ -99,9 +133,23 @@ set_target_properties(
              WIN32_EXECUTABLE TRUE
              QT_ANDROID_PACKAGE_SOURCE_DIR ${PROJECT_SOURCE_DIR}/android)
 
+find_package(
+  Qt6 REQUIRED
+  COMPONENTS Gui
+             QuickControls2
+             Quick
+             Sql
+             Location
+             NetworkAuth
+             Svg
+             Widgets)
+
 target_link_libraries(
   YuRadio
-  PRIVATE Qt6::Core
+  PRIVATE FFmpegPlayer
+          YuRadioNetworkplugin
+          YuRadioContentsplugin
+          Qt6::Core
           Qt6::Gui
           Qt6::Qml
           Qt6::Quick
@@ -110,10 +158,7 @@ target_link_libraries(
           Qt6::Location
           Qt6::NetworkAuth
           Qt6::Svg
-          YuRadioNetworkplugin
-          YuRadioContentsplugin
           "$<$<NOT:$<PLATFORM_ID:Android>>:Qt6::Widgets>"
-          "$<$<NOT:$<PLATFORM_ID:Android>>:Qt6::Multimedia>"
           "$<TARGET_NAME_IF_EXISTS:uiohook>"
           "$<TARGET_NAME_IF_EXISTS:HotReloader>")
 
