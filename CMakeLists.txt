@@ -59,8 +59,16 @@ if(LINUX
    OR APPLE)
   install(
     TARGETS YuRadio
+    COMPONENT YuRadioInstaller
     BUNDLE DESTINATION .
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT YuRadioInstaller)
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif()
+
+if(WIN32)
+  install(
+    FILES $<TARGET_RUNTIME_DLLS:YuRadio>
+    COMPONENT YuRadioInstaller
+    DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
 
 # Deployment script for LINUX, MAC, WINDOWS
