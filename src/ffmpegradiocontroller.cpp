@@ -104,6 +104,16 @@ public:
     }, Qt::QueuedConnection);
   }
 
+  void on_frame_captured(const ffmpeg::frame &frame) override {
+    QMetaObject::invokeMethod(m_controller, [this, f = frame]() {
+      AudioStreamRecorder *recorder = m_controller->audioStreamRecorder();
+
+      if (recorder->recording()) {
+        recorder->processFrame(f, m_controller->streamTitle());
+      }
+    }, Qt::QueuedConnection);
+  }
+
 private:
   FFmpegRadioController *m_controller = nullptr;
 };

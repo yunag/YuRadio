@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QtQml>
 
+#include "ffmpeg/muxer.h"
+
 class AudioStreamRecorder : public QObject {
   Q_OBJECT
   Q_PROPERTY(QUrl outputLocation READ outputLocation WRITE setOutputLocation
@@ -56,9 +58,7 @@ public:
   Q_INVOKABLE void saveRecording();
 
 public slots:
-  void processBuffer(const QByteArray &buffer, const QUrl &streamUrl,
-                     const QString &id);
-  void setPreferredSuffix(const QString &preferredSuffix);
+  void processFrame(const ffmpeg::frame &frame, const QString &streamTitle);
 
 signals:
   void outputLocationChanged();
@@ -69,6 +69,7 @@ signals:
   void errorOccurred();
 
 protected:
+  void closeMuxer();
   void performCopy(std::unique_ptr<QTemporaryFile> file,
                    const QString &destination);
   void reset();
@@ -80,17 +81,16 @@ protected:
 
 private:
   QUrl m_outputLocation;
-  QUrl m_streamUrl;
   QString m_streamTitle;
-  QString m_preferredSuffix;
   QString m_errorString;
   QString m_stationName;
   RecordingPolicy m_recordingPolicy;
   RecordingNameFormat m_recordingNameFormat;
 
+  std::unique_ptr<QTemporaryFile> m_tempFile;
   QDateTime m_startTime;
 
-  std::unique_ptr<QTemporaryFile> m_file;
+  ffmpeg::muxer m_muxer;
 
   bool m_recording;
 };

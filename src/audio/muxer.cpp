@@ -435,4 +435,14 @@ void muxer::set_output_channel_count(int channel_count) {
   d->output_channel_count = channel_count;
 }
 
+const char *muxer::filename() const {
+  assert(opened());
+
+  return d->ctx->url;
+}
+
+audio_format muxer::input_format() const {
+  return d->input_format;
+}
+
 }  // namespace ffmpeg

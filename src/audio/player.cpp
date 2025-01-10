@@ -66,6 +66,7 @@ public:
       error = newerror;
       error_string = newerror_string;
 
+      locker.unlock();
       if (listener) {
         listener->on_error_changed(newerror, newerror_string);
       }
@@ -78,6 +79,7 @@ public:
     if (newstatus != media_status) {
       media_status = newstatus;
 
+      locker.unlock();
       if (listener) {
         listener->on_media_status_changed(newstatus);
       }
@@ -90,17 +92,22 @@ public:
     if (newstate != state) {
       state = newstate;
 
+      locker.unlock();
       if (listener) {
         listener->on_state_changed(newstate);
       }
     }
   };
 
-  void notify_updated_metadata(const metadata_map &metadata) {
-    std::unique_lock locker(state_mutex);
-
+  void notify_metadata_changed(const metadata_map &metadata) const {
     if (listener) {
       listener->on_metadata_changed(metadata);
+    }
+  };
+
+  void notify_frame_captured(const ffmpeg::frame &frame) const {
+    if (listener) {
+      listener->on_frame_captured(frame);
     }
   };
 
@@ -111,7 +118,7 @@ public:
       metadata_map updated_metadata;
       updated_metadata["StreamTitle"] = stream_title;
 
-      notify_updated_metadata(updated_metadata);
+      notify_metadata_changed(updated_metadata);
     }
   };
 
@@ -160,7 +167,7 @@ public:
       } else {
         set_media_status(player::media_status::loaded);
 
-        notify_updated_metadata(demuxer.metadata());
+        notify_metadata_changed(demuxer.metadata());
       }
 
       return ec;
@@ -261,6 +268,8 @@ public:
         qWarning() << "Failed to push frame to audio output:" << ec.message();
         return;
       }
+
+      notify_frame_captured(frame);
     }
   }
 };
@@ -421,8 +430,11 @@ std::string player::error_string() const {
 }
 
 void player::set_listener(std::shared_ptr<player_listener> listener) {
-  const std::unique_lock locker(d->state_mutex);
-  d->listener = std::move(listener);
+  if (get_state() == player::state::stopped) {
+    d->listener = std::move(listener);
+  } else {
+    qWarning() << "Setting listener is only allowed when player is stopped";
+  }
 }
 
 void player::set_audio_device(const ffmpeg::audio_device &device) {

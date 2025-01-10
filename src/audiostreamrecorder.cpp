@@ -11,6 +11,31 @@ Q_LOGGING_CATEGORY(audioStreamRecorderLog, "YuRadio.AudioStreamRecorder")
 
 using namespace Qt::StringLiterals;
 
+namespace {
+
+const QString &removeSpecialCharacters(QString &path) {
+  static QRegularExpression re(u"[/\\?%*:|\"<>\\s]+"_s);
+
+  return path.replace(re, "_");
+}
+
+QString formatRecordingName(AudioStreamRecorder::RecordingNameFormat format,
+                            const QString &stationName,
+                            const QString &streamTitle, const QDateTime &date) {
+  QString dateTimePath = date.toString(u"yyyy-MM-dd-hhmmss"_s);
+
+  switch (format) {
+    case AudioStreamRecorder::StationDateTime:
+      return stationName + '_' + dateTimePath;
+    case AudioStreamRecorder::StationTrackNameDateTime:
+      return stationName + '_' + streamTitle + '_' + dateTimePath;
+    case AudioStreamRecorder::TrackNameDateTime:
+      return streamTitle + '_' + dateTimePath;
+  }
+}
+
+}  // namespace
+
 AudioStreamRecorder::AudioStreamRecorder(QObject *parent)
     : QObject(parent), m_recordingPolicy(NoRecordingPolicy),
       m_recordingNameFormat(StationDateTime), m_recording(false) {
@@ -105,79 +130,82 @@ void AudioStreamRecorder::setRecordingPolicy(RecordingPolicy policy) {
   }
 }
 
-void AudioStreamRecorder::processBuffer(const QByteArray &buffer,
-                                        const QUrl &streamUrl,
-                                        const QString &id) {
+void AudioStreamRecorder::processFrame(const ffmpeg::frame &frame,
+                                       const QString &streamTitle) {
   if (!m_recording) {
     return;
   }
 
-  if (m_streamUrl.isValid() && m_streamUrl != streamUrl) {
-    reset();
+  if (m_muxer.input_format() != frame.audio_format() && canSaveRecording()) {
+    /* Force save when frame format is not the same as in muxer */
+    saveRecording();
+
+    /* TODO: Change resampler dynamically in muxer to avoid that behavior */
   }
 
   if (m_recordingPolicy == SaveRecordingWhenStreamTitleChanges &&
-      !id.isEmpty() && !m_streamTitle.isEmpty() && m_streamUrl.isValid() &&
-      m_streamTitle != id && m_streamUrl == streamUrl && canSaveRecording()) {
+      !streamTitle.isEmpty() && !m_streamTitle.isEmpty() &&
+      m_streamTitle != streamTitle && canSaveRecording()) {
     saveRecording();
   }
 
-  if (!m_file) {
-    m_file = std::make_unique<QTemporaryFile>();
+  if (!m_muxer.opened() && m_errorString.isEmpty()) {
+    m_tempFile = std::make_unique<QTemporaryFile>();
+    if (m_tempFile->open() &&
+        m_tempFile->rename(m_tempFile->fileName() + u".mp3"_s) &&
+        m_tempFile->open()) {
+      /* OK */
+    } else {
+      QString errorString =
+        QString("Failed to open temporary file for recording: %1")
+          .arg(m_tempFile->errorString());
 
-    if (!m_file->open()) {
-      QString errorString = QString("Failed to open file for recording: %1 %2")
-                              .arg(m_file->fileName(), m_file->errorString());
       setError(errorString);
-      stop();
-
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
+
+      closeMuxer();
+      return;
+    }
+
+    const QString tempRecordingFilename = m_tempFile->fileName();
+
+    m_muxer.set_input_format(frame.audio_format());
+
+    std::error_code ec =
+      m_muxer.open(tempRecordingFilename.toUtf8().constData());
+    if (ec) {
+      QString errorString =
+        QString("Failed to open file for recording: %1 %2")
+          .arg(tempRecordingFilename, QString::fromStdString(ec.message()));
+
+      setError(errorString);
+      qCWarning(audioStreamRecorderLog).noquote() << errorString;
+
+      closeMuxer();
+      return;
+    }
+
+    ffmpeg::metadata_map metadata;
+    if (!streamTitle.isEmpty()) {
+      metadata["StreamTitle"] = streamTitle.toStdString();
+    }
+
+    ec = m_muxer.write_header(metadata);
+    if (ec) {
+      qCWarning(audioStreamRecorderLog)
+        << "Failed to write header:" << ec.message();
+
+      closeMuxer();
       return;
     }
   }
 
-  m_streamTitle = id;
-  m_streamUrl = streamUrl;
+  m_streamTitle = streamTitle;
 
-  m_file->write(buffer);
-}
-
-void AudioStreamRecorder::setPreferredSuffix(const QString &preferredSuffix) {
-  qCDebug(audioStreamRecorderLog) << "Set preferred suffix:" << preferredSuffix;
-
-  static const QStringList mpegFormats = {
-    u"mpga"_s,
-    u"mpega"_s,
-    u"mp1"_s,
-    u"mp2"_s,
-  };
-
-  if (mpegFormats.contains(preferredSuffix)) {
-    m_preferredSuffix = u"mp3"_s;
-  } else {
-    m_preferredSuffix = preferredSuffix;
-  }
-}
-
-static const QString &removeSpecialCharacters(QString &path) {
-  static QRegularExpression re(u"[/\\?%*:|\"<>\\s]+"_s);
-
-  return path.replace(re, "_");
-}
-
-static QString
-formatRecordingName(AudioStreamRecorder::RecordingNameFormat format,
-                    const QString &stationName, const QString &streamTitle,
-                    const QDateTime &date) {
-  QString dateTimePath = date.toString(u"yyyy-MM-dd-hhmmss"_s);
-
-  switch (format) {
-    case AudioStreamRecorder::StationDateTime:
-      return stationName + '_' + dateTimePath;
-    case AudioStreamRecorder::StationTrackNameDateTime:
-      return stationName + '_' + streamTitle + '_' + dateTimePath;
-    case AudioStreamRecorder::TrackNameDateTime:
-      return streamTitle + '_' + dateTimePath;
+  std::error_code ec = m_muxer.write(frame);
+  if (ec) {
+    qCWarning(audioStreamRecorderLog)
+      << "Failed to write frame to output file:" << ec.message();
   }
 }
 
@@ -206,7 +234,7 @@ QString AudioStreamRecorder::recordingName() const {
 void AudioStreamRecorder::performCopy(std::unique_ptr<QTemporaryFile> file,
                                       const QString &destination) {
   QThreadPool::globalInstance()->start(
-    [this, file = std::move(file), destination]() {
+    [this, readFile = std::move(file), destination]() {
     QFile saveFile(destination);
 
     if (!saveFile.open(QIODeviceBase::ReadWrite)) {
@@ -218,20 +246,22 @@ void AudioStreamRecorder::performCopy(std::unique_ptr<QTemporaryFile> file,
       });
 
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
+      return;
     }
 
-    if (file->open()) {
-      file->seek(0);
+    if (readFile->open()) {
+      readFile->seek(0);
 
-      while (!file->atEnd() && saveFile.write(file->read(16384)) != -1) {
-        ;
+      while (!readFile->atEnd() &&
+             saveFile.write(readFile->read(16384)) != -1) {
+        std::this_thread::yield();
       }
     } else {
-      QString errorString =
-        QString("Failed to open temporary file: %1").arg(file->errorString());
+      QString errorString = QString("Failed to open temporary file: %1")
+                              .arg(readFile->errorString());
 
-      QMetaObject::invokeMethod(this, [this, errorString]() {
-        setError(errorString);
+      QMetaObject::invokeMethod(this, [this, err = std::move(errorString)]() {
+        setError(err);
       });
 
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
@@ -243,36 +273,40 @@ void AudioStreamRecorder::saveRecording() {
   qCDebug(audioStreamRecorderLog) << "Save Recording";
 
   if (canSaveRecording()) {
-    QString suffix = m_preferredSuffix;
-    if (suffix.isEmpty()) {
-      qCWarning(audioStreamRecorderLog())
-        << "Suffix is empty using mp3 as fallback";
-      suffix = u"mp3"_s;
+    const QString suffix = u"mp3"_s;
+    const QString finalName = recordingName() + '.' + suffix;
+
+    std::error_code ec = m_muxer.write_trailer();
+    if (ec) {
+      qCWarning(audioStreamRecorderLog)
+        << "Failed to write trailer:" << ec.message();
+      closeMuxer();
+      return;
     }
 
-    QString finalName = recordingName() + '.' + suffix;
+    m_muxer.close();
 
     QString recordingPath = outputLocationToDir().filePath(finalName);
-
     qCDebug(audioStreamRecorderLog)
-      << QString("Rename %1 to %2").arg(m_file->fileName(), recordingPath);
+      << QString("Rename %1 to %2").arg(m_tempFile->fileName(), recordingPath);
 
-    if (m_file->rename(recordingPath)) {
-      /* Successfully renamed file. No need to remove it */
-      m_file->setAutoRemove(false);
-    } else if (!m_file->copy(recordingPath)) {
-      /* NOTE: QTemporaryFile needs to be copied when destination resides in
-       * different partition
-       */
+    if (m_tempFile->rename(recordingPath)) {
+      /* Successfully renamed file. No remove needed */
+      m_tempFile->setAutoRemove(false);
+      return;
+    }
+
+    if (!m_tempFile->copy(recordingPath)) {
       QString errorString =
-        QString("Failed to copy recording file from %1 to %2. Reason: %3")
-          .arg(m_file->fileName(), recordingPath, m_file->errorString());
+        QString("Failed to copy recording file from %1 to %2.")
+          .arg(m_tempFile->fileName(), recordingPath);
 
       qCWarning(audioStreamRecorderLog).noquote() << errorString;
 
       /* NOTE: Final try. Especially useful for Android */
-      performCopy(std::move(m_file), recordingPath);
+      performCopy(std::move(m_tempFile), recordingPath);
     }
+
   } else {
     QString errorString = "Failed to save recording. File is closed";
     setError(errorString);
@@ -280,15 +314,14 @@ void AudioStreamRecorder::saveRecording() {
     qCWarning(audioStreamRecorderLog).noquote() << errorString;
   }
 
-  m_file.reset(nullptr);
   m_startTime = QDateTime::currentDateTime();
 }
 
 void AudioStreamRecorder::reset() {
-  m_streamTitle = QString();
-  m_streamUrl = QUrl();
+  m_streamTitle = {};
+  m_errorString = {};
   m_startTime = QDateTime::currentDateTime();
-  m_file.reset(nullptr);
+  closeMuxer();
 }
 
 AudioStreamRecorder::RecordingNameFormat
@@ -334,5 +367,10 @@ void AudioStreamRecorder::setStationName(const QString &stationName) {
 }
 
 bool AudioStreamRecorder::canSaveRecording() const {
-  return m_recording && m_file && m_file->isOpen();
+  return m_recording && m_muxer.opened() && m_tempFile && m_tempFile->isOpen();
+}
+
+void AudioStreamRecorder::closeMuxer() {
+  m_muxer.close();
+  m_tempFile = {};
 }

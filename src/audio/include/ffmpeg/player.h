@@ -2,6 +2,7 @@
 #define FFMPEG_PLAYER_H
 
 #include "ffmpeg/audio_device.h"
+#include "ffmpeg/frame.h"
 #include "ffmpeg/pimpl.h"
 #include "ffmpeg/types.h"
 
@@ -77,6 +78,8 @@ public:
   virtual void on_metadata_changed(const ffmpeg::metadata_map &metadata) {
     (void)metadata;
   }
+
+  virtual void on_frame_captured(const ffmpeg::frame &frame) { (void)frame; }
 
   virtual void on_error_changed(ffmpeg::player::error error,
                                 const std::string &error_string) {
