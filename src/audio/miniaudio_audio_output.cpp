@@ -120,7 +120,9 @@ void audio_output::start() {
 void audio_output::stop() {
   {
     std::unique_lock locker(d->mutex);
-    av_audio_fifo_drain(d->audio_fifo, av_audio_fifo_size(d->audio_fifo));
+    if (d->audio_fifo) {
+      av_audio_fifo_drain(d->audio_fifo, av_audio_fifo_size(d->audio_fifo));
+    }
   }
 
   ma_device_stop(&d->miniaudio_audio_device);
