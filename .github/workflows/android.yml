@@ -90,7 +90,7 @@ jobs:
               -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
               -DCMAKE_TOOLCHAIN_FILE=${{ env.QT_ROOT_DIR }}/lib/cmake/Qt6/qt.toolchain.cmake \
               -DCMAKE_PREFIX_PATH=${{ env.QT_ROOT_DIR }} \
-              -QT_ANDROID_TARGET_SDK_VERSION=34 \
+              -DQT_ANDROID_TARGET_SDK_VERSION=34 \
               -DQT_HOST_PATH=$qt_host_path \
               -DANDROID_SDK_ROOT=${{ env.ANDROID_SDK_ROOT }} \
               -DANDROID_NDK_ROOT=${{ env.ANDROID_SDK_ROOT }}/ndk/26.1.10909125 \
