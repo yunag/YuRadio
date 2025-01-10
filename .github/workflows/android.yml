@@ -19,7 +19,7 @@ jobs:
         include:
           - os: ubuntu-latest
             qt-version: ${{ inputs.qt-version }}
-            qt-modules: 'qtimageformats qtlocation qtmultimedia qtnetworkauth qtwebsockets qtshadertools qtpositioning'
+            qt-modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'
             aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
             build-type: Release
 

@@ -40,3 +40,9 @@ jobs:
     secrets: inherit
     with:
       qt-version: ${{ needs.get-env-vars.outputs.qt-version }}
+
+  release:
+    name: Release 
+    needs: [android, windows]
+    uses: ./.github/workflows/release.yml
+    secrets: inherit

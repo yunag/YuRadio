@@ -40,18 +40,25 @@ jobs:
           cache: true
           arch: win64_msvc2019_64
           tools: 'tools_ifw'
-          modules: 'qtimageformats qtlocation qtmultimedia qtnetworkauth qtwebsockets qtshadertools qtpositioning'
+          modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
           host: windows
           target: desktop
 
+      - name: Install FFmpeg
+        id: install-ffmpeg
+        run: |
+          Invoke-WebRequest "https://github.com/yunag/YuRadio-deps/releases/download/2.0.0/windows-ffmpeg.zip" -OutFile "windows-ffmpeg.zip"
+          Expand-Archive "windows-ffmpeg.zip" -DestinationPath "windows-ffmpeg" -Force
+
+          echo "ffmpeg_install_location=$(pwd)/windows-ffmpeg" >> $ENV:GITHUB_OUTPUT
+
       - name: Build (${{ matrix.build-type }})
-        env:
-          VERBOSE: 1
         run: |
           cmake --warn-uninitialized --warn-unused-vars `
               -S . `
               -B build -G Ninja `
+              -DCMAKE_PREFIX_PATH=${{ steps.install-ffmpeg.outputs.ffmpeg_install_location }} `
               -DCMAKE_TOOLCHAIN_FILE=${{ env.QT_ROOT_DIR }}/lib/cmake/Qt6/qt.toolchain.cmake `
               -DSPOTIFY_CLIENTID="${{ secrets.SPOTIFY_CLIENTID }}" `
               -DSPOTIFY_CLIENTID_HASH="${{ secrets.SPOTIFY_CLIENTID_HASH}}" `

@@ -43,8 +43,6 @@ jobs:
           sudo apt install -y ninja-build libx11-dev libxtst-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb-xinerama0-dev libxcursor-dev libxinerama-dev
 
       - name: Build (${{ matrix.build-type }})
-        env:
-          VERBOSE: 1
         run: |
           cmake --warn-uninitialized --warn-unused-vars \
               -S . \

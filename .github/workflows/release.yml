@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  release-job:
+    name: Release
+    permissions:
+      contents: write
+
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Zip Artifacts
+        run: |
+          pushd artifacts
+          for file in */; do 
+            if [[ -d $file ]]; then
+              pushd ${file}
+              # Zip without parent directory
+              zip -r "../${file%/}.zip" .
+              popd
+
+              rm -rf ${file}
+            fi
+          done
+          popd
+
+      - name: Artifact Names
+        id: artifact-names
+        run: |
+          echo "artifact_names=$(ls -1 artifacts/* | awk '{ printf "%s%s", sep, $0; sep="," }')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "${{ steps.artifact-names.outputs.artifact_names }}"
