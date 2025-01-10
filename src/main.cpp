@@ -1,6 +1,6 @@
 #include "application.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv) {
   if (qEnvironmentVariableIsEmpty("ANDROID_OPENSSL_SUFFIX")) {
     /* Needed by Qt to load correct OpenSSL version */
     qputenv("ANDROID_OPENSSL_SUFFIX", "34");

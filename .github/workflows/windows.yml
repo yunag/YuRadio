@@ -28,10 +28,10 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Set up MinGW
-        uses: egor-tensin/setup-mingw@v2
+      - uses: MinoruSekine/setup-scoop@v4.0.1
         with:
-          platform: x64
+          buckets: extras
+          apps: ninja cmake
 
       - name: Install Qt ${{ matrix.qt-version }} (aqtinstall)
         uses: jurplel/install-qt-action@v4
@@ -39,7 +39,7 @@ jobs:
           version: ${{ matrix.qt-version }}
           cache: true
           arch: win64_mingw
-          tools: 'tools_ifw'
+          tools: 'tools_ifw tools_mingw tools_mingw90'
           modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
           host: windows
@@ -58,8 +58,10 @@ jobs:
           cmake --warn-uninitialized --warn-unused-vars `
               -S . `
               -B build -G Ninja `
-              -DCMAKE_PREFIX_PATH=${{ steps.install-ffmpeg.outputs.ffmpeg_install_location }} `
               -DCMAKE_TOOLCHAIN_FILE=${{ env.QT_ROOT_DIR }}/lib/cmake/Qt6/qt.toolchain.cmake `
+              -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }};${{ steps.install-ffmpeg.outputs.ffmpeg_install_location }}" `
+              -DCMAKE_CXX_COMPILER="${{ env.IQTA_TOOLS }}/mingw1120_64/bin/g++.exe" `
+              -DCMAKE_C_COMPILER="${{ env.IQTA_TOOLS }}/mingw1120_64/bin/gcc.exe" `
               -DSPOTIFY_CLIENTID="${{ secrets.SPOTIFY_CLIENTID }}" `
               -DSPOTIFY_CLIENTID_HASH="${{ secrets.SPOTIFY_CLIENTID_HASH}}" `
               -DSPOTIFY_SECRET="${{ secrets.SPOTIFY_SECRET}}" `

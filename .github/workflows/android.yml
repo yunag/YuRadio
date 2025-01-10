@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: ["android_armv7", "android_arm64_v8a"]
+        arch: ["android_armv7", "android_arm64_v8a", "android_x86_64"]
         include:
           - os: ubuntu-latest
             qt-version: ${{ inputs.qt-version }}
@@ -59,12 +59,6 @@ jobs:
         run: |
           sudo apt install -y ninja-build
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
@@ -72,6 +66,7 @@ jobs:
         run: |
           sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           sdkmanager "ndk;26.1.10909125"
+          sdkmanager --uninstall "platforms;android-35" "platforms;android-35-ext14"
 
       - name: Build (${{ matrix.build-type }})
         env:
@@ -79,8 +74,8 @@ jobs:
           QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_ALIAS }}
           QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_STORE_PASS }}
           QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          ANDROID_NDK_ROOT: ${{ env.ANDROID_SDK_ROOT }}/ndk/26.1.10909125
 
-          VERBOSE: 1
         run: |
           echo "${{ secrets.ANDROID_KEYSTORE }}" | base64 --decode > android_release.keystore
           qt_host_path=$(readlink --canonicalize ${{ env.QT_ROOT_DIR }}/../gcc_64)
@@ -90,10 +85,9 @@ jobs:
               -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
               -DCMAKE_TOOLCHAIN_FILE=${{ env.QT_ROOT_DIR }}/lib/cmake/Qt6/qt.toolchain.cmake \
               -DCMAKE_PREFIX_PATH=${{ env.QT_ROOT_DIR }} \
-              -DQT_ANDROID_TARGET_SDK_VERSION=34 \
               -DQT_HOST_PATH=$qt_host_path \
               -DANDROID_SDK_ROOT=${{ env.ANDROID_SDK_ROOT }} \
-              -DANDROID_NDK_ROOT=${{ env.ANDROID_SDK_ROOT }}/ndk/26.1.10909125 \
+              -DANDROID_NDK_ROOT=${{ env.ANDROID_NDK_ROOT }} \
               -DSPOTIFY_CLIENTID="${{ secrets.SPOTIFY_CLIENTID }}" \
               -DSPOTIFY_CLIENTID_HASH="${{ secrets.SPOTIFY_CLIENTID_HASH}}" \
               -DSPOTIFY_SECRET="${{ secrets.SPOTIFY_SECRET}}" \
