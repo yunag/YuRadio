@@ -28,17 +28,12 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
       - name: Install Qt ${{ matrix.qt-version }} (aqtinstall)
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt-version }}
           cache: true
-          arch: win64_msvc2019_64
+          arch: win64_mingw
           tools: 'tools_ifw'
           modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'
           aqtsource: 'git+https://github.com/miurahr/aqtinstall.git'
