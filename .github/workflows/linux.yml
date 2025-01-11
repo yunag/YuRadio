@@ -42,7 +42,7 @@ jobs:
         run: |
           sudo apt install -y ninja-build \
             libx11-dev libxtst-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb-xinerama0-dev libxcursor-dev libxinerama-dev \
-            libavformat61 libavformat-dev libavcodec61 libavcodec-dev libavutil59 libavutil-dev libswresample5 libswresample-dev libavfilter10 libavfilter-dev
+            libavformat-dev libavcodec-dev libavutil-dev libswresample-dev libavfilter-dev
 
       - name: Build (${{ matrix.build-type }})
         run: |
