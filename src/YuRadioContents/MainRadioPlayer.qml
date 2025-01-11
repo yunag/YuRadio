@@ -39,10 +39,12 @@ RadioPlayer {
     }
 
     onCurrentItemChanged: {
+        /* TODO: Add option to enable this behavior
         if (audioStreamRecorder.recording) {
             audioStreamRecorder.stop();
             audioStreamRecorder.record();
         }
+        */
         stationName = currentItem.name;
         const newMediaItem = constructMediaItem();
         if (currentItem.isValid()) {
