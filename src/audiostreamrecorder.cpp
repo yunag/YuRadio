@@ -1,3 +1,8 @@
+/**
+ * @file
+ * @brief TODO: move to separate thread
+ */
+
 #include <QLoggingCategory>
 Q_LOGGING_CATEGORY(audioStreamRecorderLog, "YuRadio.AudioStreamRecorder")
 
@@ -46,6 +51,7 @@ AudioStreamRecorder::AudioStreamRecorder(QObject *parent)
   /* Ensure music location path exists */
   QDir().mkpath(musicLocation);
   m_outputLocation = QUrl::fromLocalFile(musicLocation);
+
   qCDebug(audioStreamRecorderLog)
     << "Default music location:" << m_outputLocation;
 }
@@ -139,6 +145,7 @@ void AudioStreamRecorder::processFrame(const ffmpeg::frame &frame,
   if (m_muxer.input_format() != frame.audio_format() && canSaveRecording()) {
     /* Force save when frame format is not the same as in muxer */
     saveRecording();
+    m_startTime = QDateTime::currentDateTime();
 
     /* TODO: Change resampler dynamically in muxer to avoid that behavior */
   }
@@ -147,6 +154,7 @@ void AudioStreamRecorder::processFrame(const ffmpeg::frame &frame,
       !streamTitle.isEmpty() && !m_streamTitle.isEmpty() &&
       m_streamTitle != streamTitle && canSaveRecording()) {
     saveRecording();
+    m_startTime = QDateTime::currentDateTime();
   }
 
   if (!m_muxer.opened() && m_errorString.isEmpty()) {
@@ -313,8 +321,6 @@ void AudioStreamRecorder::saveRecording() {
 
     qCWarning(audioStreamRecorderLog).noquote() << errorString;
   }
-
-  m_startTime = QDateTime::currentDateTime();
 }
 
 void AudioStreamRecorder::reset() {
