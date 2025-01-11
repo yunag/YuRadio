@@ -314,8 +314,8 @@ FocusScope {
                         down: false
 
                         onClicked: {
-                            MainRadioPlayer.stop();
                             MainRadioPlayer.currentItem = RadioStationFactory.create();
+                            MainRadioPlayer.stop();
                         }
                     }
                 }
