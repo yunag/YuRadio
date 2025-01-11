@@ -193,15 +193,13 @@ public:
      *
      * TODO: Make it configurable
      */
-    const std::size_t minimum_audio_queue_size =
-      static_cast<std::size_t>(audio_output_format.sample_rate);
-    const std::size_t maximum_audio_queue_size =
-      minimum_audio_queue_size +
-      static_cast<std::size_t>(audio_output_format.sample_rate);
+    const int minimum_audio_queue_size = audio_output_format.sample_rate;
+    const int maximum_audio_queue_size =
+      minimum_audio_queue_size + audio_output_format.sample_rate;
 
-    const std::size_t preferred_audio_queue_size =
+    const int preferred_audio_queue_size =
       (minimum_audio_queue_size + maximum_audio_queue_size) / 2;
-    const std::size_t samples_wait =
+    const int samples_wait =
       maximum_audio_queue_size - preferred_audio_queue_size;
 
     const std::chrono::duration<double> wait_duration(
