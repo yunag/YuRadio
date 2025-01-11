@@ -109,7 +109,8 @@ public:
       AudioStreamRecorder *recorder = m_controller->audioStreamRecorder();
 
       if (recorder->recording()) {
-        recorder->processFrame(f, m_controller->streamTitle());
+        RecorderSink *sink = recorder->recorderSink();
+        sink->send(f, m_controller->streamTitle());
       }
     }, Qt::QueuedConnection);
   }
