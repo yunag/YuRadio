@@ -16,6 +16,7 @@ class audio_resampler_private {
 public:
   SwrContext *ctx = nullptr;
 
+  uint8_t *audio_data[AV_NUM_DATA_POINTERS];
   uint8_t *audio_buf = nullptr;
   uint32_t audio_buf_size = 0;
 
@@ -42,9 +43,6 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
 
   const AVSampleFormat out_sample_format =
     get_av_sample_format(out_format.sample_format);
-
-  /* Planar formats need to be handled differently */
-  assert(!av_sample_fmt_is_planar(out_sample_format));
 
   const int out_sample_rate = out_format.sample_rate;
 
@@ -102,25 +100,30 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
       return errc::einval;
     }
 
-    uint8_t **out = &d->audio_buf;
     av_fast_malloc(reinterpret_cast<void *>(&d->audio_buf), &d->audio_buf_size,
                    static_cast<std::size_t>(out_size));
 
+    int ret = av_samples_fill_arrays(d->audio_data, nullptr, d->audio_buf,
+                                     out_ch_layout.nb_channels, out_nb_samples,
+                                     out_sample_format, 0);
+    if (ret < 0) {
+      return errc::einval;
+    }
+
     assert(d->audio_buf != nullptr);
 
-    const int samples = swr_convert(
-      d->ctx, out, out_nb_samples, avframe->extended_data, avframe->nb_samples);
+    const int samples =
+      swr_convert(d->ctx, d->audio_data, out_nb_samples, avframe->extended_data,
+                  avframe->nb_samples);
     if (samples < 0) {
       /* The documentation doesn't tell us if a valid error code is returned */
       return errc::invaliddata;
     }
 
-    return audio_buffer(d->audio_buf, samples);
+    return audio_buffer(d->audio_data, samples);
   }
 
-  const uint8_t *audio_buf = avframe->data[0];
-
-  return audio_buffer(audio_buf, avframe->nb_samples);
+  return audio_buffer(avframe->extended_data, avframe->nb_samples);
 }
 
 }  // namespace ffmpeg

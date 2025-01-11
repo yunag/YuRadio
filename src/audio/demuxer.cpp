@@ -53,8 +53,8 @@ std::error_code demuxer::open(const char *url) {
   d->ctx = avformat_alloc_context();
   d->ctx->interrupt_callback.opaque = d.get();
   d->ctx->interrupt_callback.callback = [](void *opaque) -> int {
-    const auto *demuxer = reinterpret_cast<const demuxer_private *>(opaque);
-    return demuxer ? static_cast<int>(demuxer->abort) : 0;
+    const auto *d = reinterpret_cast<const demuxer_private *>(opaque);
+    return d ? static_cast<int>(d->abort) : 0;
   };
 
   int ret = avformat_open_input(&d->ctx, url, nullptr, nullptr);

@@ -10,16 +10,11 @@ namespace ffmpeg {
 class audio_resampler_private;
 
 struct audio_buffer {
-  audio_buffer(const uint8_t *buf, int nb_samples)
-      : m_buf(buf), m_nb_samples(nb_samples) {}
+  audio_buffer(const uint8_t *const *data_planes, int _nb_samples)
+      : data(data_planes), nb_samples(_nb_samples) {}
 
-  const std::uint8_t *data() const { return m_buf; }
-
-  int nb_samples() const { return m_nb_samples; }
-
-private:
-  const std::uint8_t *m_buf;
-  int m_nb_samples;
+  const std::uint8_t *const *data;
+  int nb_samples;
 };
 
 class audio_resampler {

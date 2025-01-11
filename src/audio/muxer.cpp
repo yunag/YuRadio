@@ -1,8 +1,8 @@
 #include "ffmpeg/muxer.h"
 #include "ffmpeg/audio_format_p.h"
+#include "ffmpeg/audio_resampler.h"
 #include "ffmpeg/error.h"
 #include "ffmpeg/packet.h"
-#include "ffmpeg/scope_guard.h"
 
 #include <algorithm>
 #include <cassert>
@@ -95,7 +95,8 @@ public:
 
   AVAudioFifo *fifo = nullptr;
   SwrContext *resampler_ctx = nullptr;
-  audio_format input_format;
+
+  ffmpeg::audio_resampler resampler;
 
   int output_bit_rate = default_output_bit_rate;
   int preferred_output_sample_rate = default_output_sample_rate;
@@ -126,27 +127,6 @@ public:
     ec = encode_and_write_frame(output_frame);
     if (ec && ec != errc::eagain) {
       return ec;
-    }
-
-    return errc::ok;
-  }
-
-  std::error_code audio_resampler_init() {
-    AVChannelLayout in_ch_layout;
-    av_channel_layout_default(&in_ch_layout, input_format.channel_count);
-
-    int ret = swr_alloc_set_opts2(
-      &resampler_ctx, &codec_ctx->ch_layout, codec_ctx->sample_fmt,
-      codec_ctx->sample_rate, &in_ch_layout,
-      get_av_sample_format(input_format.sample_format),
-      input_format.sample_rate, 0, nullptr);
-    if (ret < 0) {
-      return from_av_error_code(ret);
-    }
-
-    ret = swr_init(resampler_ctx);
-    if (ret < 0) {
-      return from_av_error_code(ret);
     }
 
     return errc::ok;
@@ -194,8 +174,6 @@ public:
   }
 
   std::error_code open_impl(const char *filename) {
-    assert(input_format.valid());
-
     ctx = avformat_alloc_context();
     if (!ctx) {
       return errc::enomem;
@@ -252,12 +230,9 @@ public:
 
     std::vector<AVSampleFormat> available_sample_formats =
       supported_sample_formats(codec_ctx);
-    AVSampleFormat input_sample_format =
-      get_av_sample_format(input_format.sample_format);
 
-    if (algorithm::contains(available_sample_formats, input_sample_format)) {
-      /* Prefer input sample format to avoid resampling */
-      codec_ctx->sample_fmt = input_sample_format;
+    if (algorithm::contains(available_sample_formats, AV_SAMPLE_FMT_S16P)) {
+      codec_ctx->sample_fmt = AV_SAMPLE_FMT_S16P;
     } else {
       codec_ctx->sample_fmt = available_sample_formats.front();
     }
@@ -289,54 +264,34 @@ public:
       return errc::enomem;
     }
 
-    std::error_code ec = audio_resampler_init();
-    if (ec) {
-      return ec;
-    }
-
     return errc::ok;
   }
 
-  std::error_code convert_frame(const ffmpeg::frame &frame) const {
-    const AVFrame *input_frame = frame.avframe();
-    uint8_t **converted_input_sampels = nullptr;
+  std::error_code convert_frame(const ffmpeg::frame &frame) {
+    audio_format out_format;
 
-    /* TODO: reduce memory footprint */
-    auto cleanup = make_scope_guard([&converted_input_sampels]() {
-      if (converted_input_sampels) {
-        av_freep(reinterpret_cast<void *>(&converted_input_sampels[0]));
-      }
-      av_freep(reinterpret_cast<void *>(&converted_input_sampels));
-    });
+    out_format.sample_rate = codec_ctx->sample_rate;
+    out_format.sample_format = get_sample_format(codec_ctx->sample_fmt);
+    out_format.channel_count = codec_ctx->ch_layout.nb_channels;
 
-    int64_t delay = swr_get_delay(resampler_ctx, codec_ctx->sample_rate);
-
-    int out_nb_samples = static_cast<int>(
-      av_rescale_rnd(delay + input_frame->nb_samples, codec_ctx->sample_rate,
-                     input_frame->sample_rate, AV_ROUND_UP));
-
-    int ret = av_samples_alloc_array_and_samples(
-      &converted_input_sampels, nullptr, codec_ctx->ch_layout.nb_channels,
-      out_nb_samples, codec_ctx->sample_fmt, 0);
-    if (ret < 0) {
-      return from_av_error_code(ret);
+    auto maybeData = resampler.convert(frame, out_format);
+    if (!maybeData) {
+      return maybeData.error();
     }
 
-    int nb_samples =
-      swr_convert(resampler_ctx, converted_input_sampels, out_nb_samples,
-                  input_frame->extended_data, input_frame->nb_samples);
-    if (nb_samples < 0) {
-      return errc::invaliddata;
-    }
+    audio_buffer buf = *maybeData;
 
-    ret = av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + nb_samples);
+    int ret =
+      av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + buf.nb_samples);
     if (ret < 0) {
       return from_av_error_code(ret);
     }
 
     ret = av_audio_fifo_write(
-      fifo, reinterpret_cast<void **>(converted_input_sampels), nb_samples);
-    if (ret < nb_samples) {
+      fifo,
+      reinterpret_cast<void *const *>(const_cast<uint8_t *const *>(buf.data)),
+      buf.nb_samples);
+    if (ret < buf.nb_samples) {
       return errc::enomem;
     }
 
@@ -421,7 +376,6 @@ std::error_code muxer::write_trailer() {
 
 std::error_code muxer::write(const ffmpeg::frame &frame) {
   assert(opened());
-  assert(frame.audio_format() == d->input_format);
 
   std::error_code ec = d->convert_frame(frame);
   if (ec) {
@@ -436,13 +390,6 @@ std::error_code muxer::write(const ffmpeg::frame &frame) {
   }
 
   return errc::ok;
-}
-
-void muxer::set_input_format(const audio_format &input_format) {
-  assert(!opened());
-  assert(input_format.valid());
-
-  d->input_format = input_format;
 }
 
 void muxer::set_output_bitrate(int bit_rate) {
@@ -467,10 +414,6 @@ const char *muxer::filename() const {
   assert(opened());
 
   return d->ctx->url;
-}
-
-audio_format muxer::input_format() const {
-  return d->input_format;
 }
 
 }  // namespace ffmpeg

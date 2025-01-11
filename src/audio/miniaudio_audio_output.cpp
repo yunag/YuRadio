@@ -160,12 +160,12 @@ std::error_code audio_output::push_frame(const ffmpeg::frame &frame) {
 
   const std::unique_lock locker(d->mutex);
 
-  const std::uint8_t *in = audio_buf.data();
+  const std::uint8_t *const *in = audio_buf.data;
 
   av_audio_fifo_write(
     d->audio_fifo,
-    reinterpret_cast<void *const *>(const_cast<uint8_t *const *>(&in)),
-    audio_buf.nb_samples());
+    reinterpret_cast<void *const *>(const_cast<uint8_t *const *>(in)),
+    audio_buf.nb_samples);
 
   return {};
 }

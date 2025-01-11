@@ -29,9 +29,6 @@ public:
   void set_preferred_output_sample_rate(int sample_rate);
   void set_output_channel_count(int channel_count);
 
-  void set_input_format(const audio_format &input_format);
-  audio_format input_format() const;
-
   std::error_code open(const char *filename);
   std::error_code write(const ffmpeg::frame &frame);
   std::error_code write_header(const ffmpeg::metadata_map &metadata = {});
