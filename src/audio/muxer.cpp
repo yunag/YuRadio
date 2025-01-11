@@ -21,6 +21,9 @@ constexpr int default_output_bit_rate = 320000; /* Highest bitrate for MP3 */
 constexpr int default_output_channel_count = 2;
 constexpr int default_output_sample_rate = 44100; /* CD quality */
 
+namespace details {
+
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 30, 0)
 template <typename T>
 std::vector<T> supported_configs(AVCodecContext *codec_context,
                                  AVCodecConfig config) {
@@ -35,14 +38,39 @@ std::vector<T> supported_configs(AVCodecContext *codec_context,
 
   return std::vector(out_configs, out_configs + num_configs);
 }
+#endif
+
+}  // namespace details
 
 auto supported_sample_rates(AVCodecContext *codec_context) {
-  return supported_configs<int>(codec_context, AV_CODEC_CONFIG_SAMPLE_RATE);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 30, 0)
+  return details::supported_configs<int>(codec_context,
+                                         AV_CODEC_CONFIG_SAMPLE_RATE);
+#else
+  std::vector<int> sample_rates;
+
+  const int *sample_rate = codec_context->codec->supported_samplerates;
+  while (sample_rate && *sample_rate != 0) {
+    sample_rates.push_back(*sample_rate);
+  }
+  return sample_rates;
+#endif
 }
 
 auto supported_sample_formats(AVCodecContext *codec_context) {
-  return supported_configs<AVSampleFormat>(codec_context,
-                                           AV_CODEC_CONFIG_SAMPLE_FORMAT);
+#if LIBAVCODEC_VERSION_INT >= AV_VERSION_INT(61, 30, 0)
+  return details::supported_configs<AVSampleFormat>(
+    codec_context, AV_CODEC_CONFIG_SAMPLE_FORMAT);
+#else
+
+  std::vector<AVSampleFormat> sample_formats;
+
+  const AVSampleFormat *sample_format = codec_context->codec->sample_fmts;
+  while (sample_format && *sample_format != -1) {
+    sample_formats.push_back(*sample_format);
+  }
+  return sample_formats;
+#endif
 }
 
 namespace algorithm {
@@ -89,7 +117,7 @@ public:
     int ret = av_audio_fifo_read(
       fifo, reinterpret_cast<void **>(output_frame->data), frame_size);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
     if (ret < frame_size) {
       return errc::einval;
@@ -113,12 +141,12 @@ public:
       get_av_sample_format(input_format.sample_format),
       input_format.sample_rate, 0, nullptr);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ret = swr_init(resampler_ctx);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     return errc::ok;
@@ -136,17 +164,17 @@ public:
     int ret = avcodec_send_frame(codec_ctx, output_frame);
 
     if (ret < 0 && ret != AVERROR_EOF) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ret = avcodec_receive_packet(codec_ctx, output_packet);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ret = av_write_frame(ctx, output_packet);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     return errc::ok;
@@ -162,7 +190,7 @@ public:
     avframe->sample_rate = codec_ctx->sample_rate;
 
     int ret = av_frame_get_buffer(avframe, 0);
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   std::error_code open_impl(const char *filename) {
@@ -177,7 +205,7 @@ public:
 
     int ret = avio_open(&io_ctx, filename, AVIO_FLAG_WRITE);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ctx->pb = io_ctx;
@@ -247,12 +275,12 @@ public:
 
     ret = avcodec_open2(codec_ctx, codec, nullptr);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ret = avcodec_parameters_from_context(stream->codecpar, codec_ctx);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     fifo = av_audio_fifo_alloc(codec_ctx->sample_fmt,
@@ -291,7 +319,7 @@ public:
       &converted_input_sampels, nullptr, codec_ctx->ch_layout.nb_channels,
       out_nb_samples, codec_ctx->sample_fmt, 0);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     int nb_samples =
@@ -303,7 +331,7 @@ public:
 
     ret = av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + nb_samples);
     if (ret < 0) {
-      return static_cast<errc>(ret);
+      return from_av_error_code(ret);
     }
 
     ret = av_audio_fifo_write(
@@ -368,7 +396,7 @@ std::error_code muxer::write_header(const metadata_map &metadata) {
   }
 
   const int ret = avformat_write_header(d->ctx, nullptr);
-  return static_cast<errc>(ret);
+  return from_av_error_code(ret);
 }
 
 std::error_code muxer::write_trailer() {
@@ -388,7 +416,7 @@ std::error_code muxer::write_trailer() {
 
   close();
 
-  return static_cast<errc>(ret);
+  return from_av_error_code(ret);
 }
 
 std::error_code muxer::write(const ffmpeg::frame &frame) {

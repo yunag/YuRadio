@@ -75,12 +75,12 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
         static_cast<AVSampleFormat>(avframe->format), avframe->sample_rate, 0,
         nullptr);
       if (ret < 0) {
-        return static_cast<errc>(ret);
+        return from_av_error_code(ret);
       }
 
       ret = swr_init(d->ctx);
       if (ret < 0) {
-        return static_cast<errc>(ret);
+        return from_av_error_code(ret);
       }
 
       d->in_ch_layout = avframe->ch_layout;

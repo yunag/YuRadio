@@ -40,12 +40,12 @@ std::error_code decoder::open(const AVStream *stream) {
 
   int ret = avcodec_parameters_to_context(d->codec_ctx, stream->codecpar);
   if (ret < 0) {
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   ret = avcodec_open2(d->codec_ctx, codec, nullptr);
   if (ret < 0) {
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   d->codec_ctx->codec_id = codec->id;
@@ -64,14 +64,14 @@ std::error_code decoder::send(const ffmpeg::packet &packet) {
   assert(opened());
 
   const int ret = avcodec_send_packet(d->codec_ctx, packet.avpacket());
-  return static_cast<errc>(ret);
+  return from_av_error_code(ret);
 }
 
 std::error_code decoder::receive(ffmpeg::frame &frame) {
   assert(opened());
 
   const int ret = avcodec_receive_frame(d->codec_ctx, frame.avframe());
-  return static_cast<errc>(ret);
+  return from_av_error_code(ret);
 }
 
 bool decoder::opened() const {

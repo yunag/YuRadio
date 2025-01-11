@@ -59,12 +59,12 @@ std::error_code demuxer::open(const char *url) {
 
   int ret = avformat_open_input(&d->ctx, url, nullptr, nullptr);
   if (ret < 0) {
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   ret = avformat_find_stream_info(d->ctx, nullptr);
   if (ret < 0) {
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   d->audio_stream_index =
@@ -105,7 +105,7 @@ std::error_code demuxer::read(ffmpeg::packet &packet) {
       return errc::eof;
     }
 
-    return static_cast<errc>(ret);
+    return from_av_error_code(ret);
   }
 
   AVStream *stream = d->ctx->streams[d->audio_stream_index];
