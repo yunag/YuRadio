@@ -31,7 +31,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt-version }}
-          cache: true
+          cache: false
           arch: linux_gcc_64
           host: linux
           modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'
