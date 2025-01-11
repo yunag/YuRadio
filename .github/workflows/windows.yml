@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-aqtinstall:
+  build_deploy:
     name: Build (${{ matrix.build-type }}, Qt ${{ matrix.qt-version }}, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:

@@ -43,6 +43,6 @@ jobs:
 
   release:
     name: Release 
-    needs: [android, windows]
+    needs: [android, windows, linux]
     uses: ./.github/workflows/release.yml
     secrets: inherit
