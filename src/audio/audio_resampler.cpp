@@ -113,7 +113,8 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
     assert(d->audio_buf != nullptr);
 
     const int samples =
-      swr_convert(d->ctx, d->audio_data, out_nb_samples, avframe->extended_data,
+      swr_convert(d->ctx, d->audio_data, out_nb_samples,
+                  const_cast<const uint8_t **>(avframe->extended_data),
                   avframe->nb_samples);
     if (samples < 0) {
       /* The documentation doesn't tell us if a valid error code is returned */
