@@ -62,7 +62,6 @@ AudioStreamRecorder::AudioStreamRecorder(QObject *parent)
 
   /* Ensure music location path exists */
   QDir().mkpath(musicLocation);
-  m_outputLocation = QUrl::fromLocalFile(musicLocation);
 
   qCDebug(audioStreamRecorderLog)
     << "Default music location:" << m_outputLocation;
@@ -76,6 +75,8 @@ AudioStreamRecorder::AudioStreamRecorder(QObject *parent)
 
   m_recorderWorker->moveToThread(&m_recorderThread);
   m_recorderThread.start();
+
+  setOutputLocation(QUrl::fromLocalFile(musicLocation));
 }
 
 AudioStreamRecorder::~AudioStreamRecorder() {
@@ -233,6 +234,8 @@ void AudioRecorderSinkWorker::reset() {
 }
 
 void AudioRecorderSinkWorker::resetInternal() {
+  qCDebug(audioStreamRecorderLog) << "Reset internal state";
+
   m_muxer.close();
   m_tempFile = {};
   m_streamTitle = {};
@@ -301,6 +304,7 @@ void AudioRecorderSinkWorker::performCopy(std::unique_ptr<QTemporaryFile> file,
 
 bool AudioRecorderSinkWorker::beginRecording(
   const ffmpeg::metadata_map &metadata) {
+  qCDebug(audioStreamRecorderLog) << "Prepare recording";
   m_state = PreparingState;
 
   m_tempFile = std::make_unique<QTemporaryFile>();
@@ -331,7 +335,7 @@ bool AudioRecorderSinkWorker::beginRecording(
     return false;
   }
 
-  assert(m_muxer.opened());
+  qCDebug(audioStreamRecorderLog) << "Write file header";
 
   ec = m_muxer.write_header(metadata);
   if (ec) {
@@ -341,14 +345,16 @@ bool AudioRecorderSinkWorker::beginRecording(
   }
 
   m_state = RecordingState;
+  qCDebug(audioStreamRecorderLog) << "Begin recording";
   return true;
 }
 
-void AudioRecorderSinkWorker::save() {
-  const std::unique_lock locker(m_mutex);
+void AudioRecorderSinkWorker::saveInternal() {
+  QString outputFileName =
+    outputLocationToDir(m_outputLocation).filePath(recordingName() + u".mp3"_s);
 
-  const QString name = recordingName() + u".mp3"_s;
-  QString outputFileName = outputLocationToDir(m_outputLocation).filePath(name);
+  qCDebug(audioStreamRecorderLog)
+    << "Save recording at location:" << outputFileName;
 
   if (m_state == RecordingState) {
     std::error_code ec = m_muxer.write_trailer();
@@ -380,6 +386,11 @@ void AudioRecorderSinkWorker::save() {
   }
 }
 
+void AudioRecorderSinkWorker::save() {
+  const std::unique_lock locker(m_mutex);
+  saveInternal();
+}
+
 void AudioRecorderSinkWorker::send(const ffmpeg::frame &frame,
                                    const QString &streamTitle) {
   std::unique_lock locker(m_mutex);
@@ -388,13 +399,12 @@ void AudioRecorderSinkWorker::send(const ffmpeg::frame &frame,
         AudioStreamRecorder::SaveRecordingWhenStreamTitleChanges &&
       !streamTitle.isEmpty() && !m_streamTitle.isEmpty() &&
       m_streamTitle != streamTitle) {
-    locker.unlock();
-    save();
-    locker.lock();
+    saveInternal();
   }
 
   if (m_state != RecordingState) {
     ffmpeg::metadata_map metadata;
+
     if (!streamTitle.isEmpty()) {
       metadata["StreamTitle"] = streamTitle.toStdString();
     }

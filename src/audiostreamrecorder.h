@@ -138,6 +138,7 @@ private:
   void performCopy(std::unique_ptr<QTemporaryFile> file,
                    const QString &destination);
   void setState(State state);
+  void saveInternal();
   void resetInternal();
   QString recordingName() const;
 
