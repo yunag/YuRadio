@@ -46,6 +46,8 @@ QString formatRecordingName(AudioStreamRecorder::RecordingNameFormat format,
       return stationName + '_' + streamTitle + '_' + dateTimePath;
     case AudioStreamRecorder::TrackNameDateTime:
       return streamTitle + '_' + dateTimePath;
+    case AudioStreamRecorder::DateTime:
+      return dateTimePath;
   }
 }
 

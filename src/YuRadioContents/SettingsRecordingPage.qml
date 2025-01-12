@@ -68,6 +68,11 @@ ScrollView {
 
                 model: [
                     {
+                        text: "datetime",
+                        field: AudioStreamRecorder.DateTime,
+                        visible: true
+                    },
+                    {
                         text: "station_datetime",
                         field: AudioStreamRecorder.StationDateTime,
                         visible: root.audioRecorder.recordingPolicy !== AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
@@ -129,6 +134,17 @@ ScrollView {
 
                 onActivated: {
                     AppSettings.recordingPolicy = currentValue.field;
+                }
+            }
+
+            ScalableCheckBox {
+                Layout.topMargin: 5
+                Layout.fillWidth: true
+
+                text: qsTr("Save recordings when switching between stations")
+                checked: AppSettings.saveRecordingsWhenSwitchingBetweenStations
+                onCheckedChanged: {
+                    AppSettings.saveRecordingsWhenSwitchingBetweenStations = checked;
                 }
             }
 

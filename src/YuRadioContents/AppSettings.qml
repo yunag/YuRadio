@@ -10,6 +10,7 @@ Settings {
 
     property bool enableSelectionAnimation: true
     property bool showMessagesInTray: true
+    property bool saveRecordingsWhenSwitchingBetweenStations: true
     property bool showIconInTray: true
     property bool resumePlaybackWhenNetworkRestored: true
     property bool enableBottomBarBlur: true

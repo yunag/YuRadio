@@ -38,6 +38,7 @@ public:
     StationDateTime = 0,
     StationTrackNameDateTime,
     TrackNameDateTime,
+    DateTime
   };
   Q_ENUM(RecordingNameFormat)
 
