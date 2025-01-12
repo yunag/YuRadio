@@ -27,14 +27,25 @@ jobs:
         run: |
           pushd artifacts
           for file in */; do 
-            if [[ -d $file ]]; then
-              pushd ${file}
-              # Zip without parent directory
-              zip -r "../${file%/}.zip" .
-              popd
-
-              rm -rf ${file}
-            fi
+            pushd ${file}
+            case $(echo "${file}" | awk '{print tolower($0)}') in
+            *windows*)
+              mv *.exe ..
+              ;;
+            *linux*)
+              mv *.tar.gz ..
+              ;;
+            *android*)
+              mv *.apk ..
+              ;;
+            *)
+              echo "Unknown artifact ${file}"
+              exit 1
+              ;;
+            esac
+            popd
+          
+            rm -rf ${file}
           done
           popd
 
