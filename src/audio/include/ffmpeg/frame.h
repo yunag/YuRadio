@@ -20,8 +20,6 @@ public:
   const AVFrame *avframe() const;
 
   void unref();
-
-  bool is_audio_frame() const;
   ffmpeg::audio_format audio_format() const;
 
 protected:

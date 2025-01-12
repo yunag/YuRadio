@@ -10,10 +10,10 @@ namespace ffmpeg {
 class audio_resampler_private;
 
 struct audio_buffer {
-  audio_buffer(const uint8_t *const *data_planes, int _nb_samples)
+  audio_buffer(uint8_t **data_planes, int _nb_samples)
       : data(data_planes), nb_samples(_nb_samples) {}
 
-  const std::uint8_t *const *data;
+  std::uint8_t **data;
   int nb_samples;
 };
 
@@ -26,6 +26,15 @@ public:
   audio_resampler &operator=(audio_resampler &&) = delete;
   ~audio_resampler();
 
+  /**
+   * @brief Convert frame to data to desired format
+   *
+   * @warning Result audio_buffer might point to frame's internal data if
+   * frame format is the same as `out_format`
+   *
+   * @param frame Frame
+   * @param out_format Output format
+   */
   ffmpeg::maybe<audio_buffer> convert(const frame &frame,
                                       const audio_format &out_format);
 

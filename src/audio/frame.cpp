@@ -36,15 +36,11 @@ frame &frame::operator=(frame &&other) noexcept {
 };
 
 audio_format frame::audio_format() const {
-  assert(is_audio_frame());
-
-  const AVFrame *frame = avframe();
-
   ffmpeg::audio_format fmt;
-  fmt.sample_rate = frame->sample_rate;
-  fmt.channel_count = frame->ch_layout.nb_channels;
+  fmt.sample_rate = m_frame->sample_rate;
+  fmt.channel_count = m_frame->ch_layout.nb_channels;
   fmt.sample_format =
-    get_sample_format(static_cast<AVSampleFormat>(frame->format));
+    get_sample_format(static_cast<AVSampleFormat>(m_frame->format));
 
   return fmt;
 }
@@ -55,11 +51,6 @@ AVFrame *frame::avframe() {
 
 const AVFrame *frame::avframe() const {
   return m_frame;
-}
-
-bool frame::is_audio_frame() const {
-  /* TODO: Implement video someday */
-  return true;
 }
 
 void frame::unref() {

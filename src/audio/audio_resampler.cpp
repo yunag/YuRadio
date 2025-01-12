@@ -16,7 +16,7 @@ class audio_resampler_private {
 public:
   SwrContext *ctx = nullptr;
 
-  uint8_t *audio_data[AV_NUM_DATA_POINTERS];
+  uint8_t *audio_data[32] = {};
   uint8_t *audio_buf = nullptr;
   uint32_t audio_buf_size = 0;
 
@@ -49,6 +49,9 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
   AVChannelLayout out_ch_layout;
   av_channel_layout_default(&out_ch_layout, out_format.channel_count);
 
+  /* Sanity check if number of channels less than num of data pointers */
+  assert(out_ch_layout.nb_channels < AV_NUM_DATA_POINTERS);
+
   const AVChannelLayout ch_layout = avframe->ch_layout;
 
   const bool need_convert =
@@ -66,8 +69,6 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
       av_channel_layout_compare(&d->in_ch_layout, &avframe->ch_layout);
 
     if (need_switch_ctx || !d->ctx) {
-      swr_free(&d->ctx);
-
       int ret = swr_alloc_set_opts2(
         &d->ctx, &out_ch_layout, out_sample_format, out_sample_rate, &ch_layout,
         static_cast<AVSampleFormat>(avframe->format), avframe->sample_rate, 0,
@@ -88,12 +89,15 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
       d->out_ch_layout = out_ch_layout;
       d->out_sample_format = out_sample_format;
       d->out_sample_rate = out_sample_rate;
+
+      std::fill(std::begin(d->audio_data), std::end(d->audio_data), nullptr);
     }
 
     const int64_t delay = swr_get_delay(d->ctx, out_sample_rate);
     const int out_nb_samples = static_cast<int>(
       av_rescale_rnd(delay + avframe->nb_samples, out_sample_rate,
                      avframe->sample_rate, AV_ROUND_UP));
+
     const int out_size = av_samples_get_buffer_size(
       nullptr, out_format.channel_count, out_nb_samples, out_sample_format, 0);
     if (out_size < 0) {
@@ -102,6 +106,7 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
 
     av_fast_malloc(reinterpret_cast<void *>(&d->audio_buf), &d->audio_buf_size,
                    static_cast<std::size_t>(out_size));
+    assert(d->audio_buf != nullptr);
 
     int ret = av_samples_fill_arrays(d->audio_data, nullptr, d->audio_buf,
                                      out_ch_layout.nb_channels, out_nb_samples,
@@ -109,8 +114,6 @@ audio_resampler::convert(const frame &frame, const audio_format &out_format) {
     if (ret < 0) {
       return errc::einval;
     }
-
-    assert(d->audio_buf != nullptr);
 
     const int samples =
       swr_convert(d->ctx, d->audio_data, out_nb_samples,
