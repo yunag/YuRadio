@@ -7,8 +7,6 @@ on:
         required: true
         type: string
 
-  workflow_dispatch:
-
 jobs:
   build_deploy:
     name: Build (${{ matrix.build-type }}, Qt ${{ matrix.qt-version }}, ${{ matrix.os }})
