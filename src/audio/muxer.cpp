@@ -52,7 +52,9 @@ auto supported_sample_rates(AVCodecContext *codec_context) {
   const int *sample_rate = codec_context->codec->supported_samplerates;
   while (sample_rate && *sample_rate != 0) {
     sample_rates.push_back(*sample_rate);
+    sample_rate++;
   }
+
   return sample_rates;
 #endif
 }
@@ -68,7 +70,9 @@ auto supported_sample_formats(AVCodecContext *codec_context) {
   const AVSampleFormat *sample_format = codec_context->codec->sample_fmts;
   while (sample_format && *sample_format != -1) {
     sample_formats.push_back(*sample_format);
+    sample_format++;
   }
+
   return sample_formats;
 #endif
 }
