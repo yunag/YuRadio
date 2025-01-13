@@ -116,8 +116,9 @@ void SpotifyBackend::requestMusicInfo(const QString &searchString) {
 
   QNetworkReply *reply = m_oauth2.get(searchUrl);
 
-  connect(reply, &QNetworkReply::finished, this,
-          [this, reply]() { processMusciInfoReply(reply); });
+  connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    processMusciInfoReply(reply);
+  });
   connect(reply, &QNetworkReply::finished, reply, &QObject::deleteLater);
 }
 
@@ -167,11 +168,13 @@ void SpotifyBackend::processMusciInfoReply(QNetworkReply *reply) {
     QDateTime::fromString(releaseDateString, Qt::ISODate).date();
   info.trackUrl = itemObject["external_urls"_L1]["spotify"_L1].toString();
 
-  qCInfo(spotifyBackendLog) << "Album Name" << info.albumName;
-  qCInfo(spotifyBackendLog) << "Song Name" << info.songName;
-  qCInfo(spotifyBackendLog) << "Artist Name" << info.artistNames[0];
-  qCInfo(spotifyBackendLog) << "Image Url" << info.coverUrls[0];
-  qCInfo(spotifyBackendLog) << "Track Url" << info.trackUrl;
+  qCInfo(spotifyBackendLog).noquote()
+    << "\n"
+    << "\tAlbum Name" << info.albumName << "\n"
+    << "\tSong Name" << info.songName << "\n"
+    << "\tArtist Name" << info.artistNames[0] << "\n"
+    << "\tImage Url" << info.coverUrls[0] << "\n"
+    << "\tTrack Url" << info.trackUrl;
 
   emit musicInformation(info);
 }

@@ -31,7 +31,9 @@ void ItunesBackend::requestMusicInfo(const QString &searchString) {
   m_response
     .then(this, [this](const QByteArray &data) {
     handleReplyData(data);
-  }).onFailed([this](const NetworkError & /*err*/) { emit errorOccurred(); });
+  }).onFailed([this](const NetworkError & /*err*/) {
+    emit errorOccurred();
+  });
 }
 
 void ItunesBackend::handleReplyData(const QByteArray &data) {
@@ -101,11 +103,13 @@ void ItunesBackend::handleReplyData(const QByteArray &data) {
     QDateTime::fromString(releaseDateString, Qt::ISODate).date();
   info.trackUrl = bestMatch["trackViewUrl"_L1].toString();
 
-  qCInfo(itunesBackendLog) << "Album Name" << info.albumName;
-  qCInfo(itunesBackendLog) << "Song Name" << info.songName;
-  qCInfo(itunesBackendLog) << "Artist Name" << info.artistNames[0];
-  qCInfo(itunesBackendLog) << "Image Url" << info.coverUrls[0];
-  qCInfo(itunesBackendLog) << "Track Url" << info.trackUrl;
+  qCInfo(itunesBackendLog).noquote()
+    << "\n"
+    << "\tAlbum Name:" << info.albumName << "\n"
+    << "\tSong Name:" << info.songName << "\n"
+    << "\tArtist Name:" << info.artistNames[0] << "\n"
+    << "\tImage Url:" << info.coverUrls[0] << "\n"
+    << "\tTrack Url:" << info.trackUrl << "\n";
 
   emit musicInformation(info);
 }
