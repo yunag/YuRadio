@@ -8,7 +8,9 @@
 #define MA_NO_ENGINE
 #define MA_NO_GENERATION
 #define MINIAUDIO_IMPLEMENTATION
+extern "C" {
 #include "miniaudio.h"
+}
 
 extern "C" {
 #include <libavutil/audio_fifo.h>
@@ -40,6 +42,7 @@ ma_format get_miniaudio_sample_format(ffmpeg::sample_format format) {
     case ffmpeg::sample_format::s64:
     case ffmpeg::sample_format::s64p:
     case ffmpeg::sample_format::unknown:
+    default:
       return ma_format_unknown;
   }
 }

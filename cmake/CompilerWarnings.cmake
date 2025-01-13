@@ -73,8 +73,6 @@ function(target_set_warnings target)
                          # 'override' or 'final'
   )
 
-  list(APPEND CLANG_WARNINGS -Wno-gnu-zero-variadic-macro-arguments)
-
   if(MSVC)
     target_compile_options(${target} PRIVATE ${MSVC_WARNINGS})
   elseif(MINGW)
