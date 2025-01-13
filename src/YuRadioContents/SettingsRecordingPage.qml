@@ -75,28 +75,26 @@ ScrollView {
                     {
                         text: "station_datetime",
                         field: AudioStreamRecorder.StationDateTime,
-                        visible: root.audioRecorder.recordingPolicy !== AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
+                        visible: AppSettings.recordingPolicy !== AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
                     },
                     {
                         text: "station_trackname_datetime",
                         field: AudioStreamRecorder.StationTrackNameDateTime,
-                        visible: root.audioRecorder.recordingPolicy === AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
+                        visible: AppSettings.recordingPolicy === AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
                     },
                     {
                         text: "trackname_datetime",
                         field: AudioStreamRecorder.TrackNameDateTime,
-                        visible: root.audioRecorder.recordingPolicy === AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
+                        visible: AppSettings.recordingPolicy === AudioStreamRecorder.SaveRecordingWhenStreamTitleChanges
                     },
                 ].filter(x => x.visible)
 
                 Component.onCompleted: {
-                    currentIndex = model.findIndex(x => x.field === root.audioRecorder.recordingNameFormat);
+                    currentIndex = model.findIndex(x => x.field === AppSettings.recordingNameFormat);
                 }
 
-                onCurrentValueChanged: {
-                    if (currentValue) {
-                        AppSettings.recordingNameFormat = currentValue.field;
-                    }
+                onActivated: {
+                    AppSettings.recordingNameFormat = currentValue.field;
                 }
             }
 
@@ -129,7 +127,7 @@ ScrollView {
                 ]
 
                 Component.onCompleted: {
-                    currentIndex = model.findIndex(x => x.field === root.audioRecorder.recordingPolicy);
+                    currentIndex = model.findIndex(x => x.field === AppSettings.recordingPolicy);
                 }
 
                 onActivated: {
