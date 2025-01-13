@@ -35,7 +35,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt-version }}
-          cache: false
+          cache: true
           arch: win64_mingw
           tools: 'tools_ifw tools_mingw tools_mingw90'
           modules: 'qtimageformats qtlocation qtnetworkauth qtwebsockets qtshadertools qtpositioning'

@@ -39,15 +39,22 @@ jobs:
 
       - name: Install build tools
         run: |
-          sudo apt install -y ninja-build \
-            libx11-dev libxtst-dev libxkbcommon-dev libxkbcommon-x11-dev libx11-xcb-dev libxcb-xinerama0-dev libxcursor-dev libxinerama-dev \
-            libavformat-dev libavcodec-dev libavutil-dev libswresample-dev libavfilter-dev
+          sudo apt install -y ninja-build
+
+      - name: Install FFmpeg
+        id: install-ffmpeg
+        run: |
+          wget "https://github.com/yunag/YuRadio-deps/releases/download/2.1.0/linux-ffmpeg.zip"
+          unzip linux-ffmpeg.zip -d linux-ffmpeg
+
+          echo "ffmpeg_install_location=$(pwd)/linux-ffmpeg" >> $GITHUB_OUTPUT
 
       - name: Build (${{ matrix.build-type }})
         run: |
           cmake --warn-uninitialized --warn-unused-vars \
               -S . \
               -B build -G Ninja \
+              -DCMAKE_PREFIX_PATH=${{ steps.install-ffmpeg.outputs.ffmpeg_install_location }} \
               -DCMAKE_TOOLCHAIN_FILE=${{ env.QT_ROOT_DIR }}/lib/cmake/Qt6/qt.toolchain.cmake \
               -DSPOTIFY_CLIENTID="${{ secrets.SPOTIFY_CLIENTID }}" \
               -DSPOTIFY_CLIENTID_HASH="${{ secrets.SPOTIFY_CLIENTID_HASH}}" \

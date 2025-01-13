@@ -36,7 +36,7 @@ jobs:
         uses: jurplel/install-qt-action@v4
         with:
           version: ${{ matrix.qt-version }}
-          cache: false
+          cache: true
           modules: ${{ matrix.qt-modules }}
           host: linux
           target: android
