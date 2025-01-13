@@ -406,7 +406,9 @@ void AudioRecorderSinkWorker::send(const ffmpeg::frame &frame,
   if (m_state != RecordingState) {
     ffmpeg::metadata_map metadata;
 
-    if (!streamTitle.isEmpty()) {
+    if (!streamTitle.isEmpty() &&
+        m_recordingPolicy ==
+          AudioStreamRecorder::SaveRecordingWhenStreamTitleChanges) {
       metadata["StreamTitle"] = streamTitle.toStdString();
     }
 
