@@ -63,8 +63,7 @@ AudioStreamRecorder::AudioStreamRecorder(QObject *parent)
   /* Ensure music location path exists */
   QDir().mkpath(musicLocation);
 
-  qCDebug(audioStreamRecorderLog)
-    << "Default music location:" << m_outputLocation;
+  qCDebug(audioStreamRecorderLog) << "Default music location:" << musicLocation;
 
   m_recorderWorker = std::make_unique<AudioRecorderSinkWorker>();
   connect(m_recorderWorker.get(), &AudioRecorderSinkWorker::errorOccurred, this,
@@ -245,7 +244,6 @@ void AudioRecorderSinkWorker::resetInternal() {
 
 QString AudioRecorderSinkWorker::recordingName() const {
   QString streamTitle = m_streamTitle;
-  QString station = m_stationName;
 
   if (m_streamTitle.isEmpty() ||
       m_recordingPolicy == AudioStreamRecorder::NoRecordingPolicy) {
@@ -254,8 +252,8 @@ QString AudioRecorderSinkWorker::recordingName() const {
     removeSpecialCharacters(streamTitle);
   }
 
-  QString stationName = station.isEmpty() ? u"YuRadio"_s : station;
-  if (station.isEmpty()) {
+  QString stationName = m_stationName.isEmpty() ? u"YuRadio"_s : m_stationName;
+  if (m_stationName.isEmpty()) {
     qCWarning(audioStreamRecorderLog) << "Station name is empty string";
   }
 
@@ -393,6 +391,9 @@ void AudioRecorderSinkWorker::save() {
 
 void AudioRecorderSinkWorker::send(const ffmpeg::frame &frame,
                                    const QString &streamTitle) {
+  /* Worker thread should do the job not others */
+  assert(QThread::currentThread() == thread());
+
   std::unique_lock locker(m_mutex);
 
   if (m_recordingPolicy ==

@@ -105,12 +105,17 @@ public:
   }
 
   void on_frame_captured(const ffmpeg::frame &frame) override {
-    QMetaObject::invokeMethod(m_controller, [this, f = frame]() {
+    QMetaObject::invokeMethod(m_controller, [this, f = frame]() mutable {
       AudioStreamRecorder *recorder = m_controller->audioStreamRecorder();
 
       if (recorder->recording()) {
         RecorderSink *sink = recorder->recorderSink();
-        sink->send(f, m_controller->streamTitle());
+        QString streamTitle = m_controller->streamTitle();
+
+        QMetaObject::invokeMethod(
+          sink, [sink, f = std::move(f), title = std::move(streamTitle)]() {
+          sink->send(f, title);
+        }, Qt::QueuedConnection);
       }
     }, Qt::QueuedConnection);
   }
