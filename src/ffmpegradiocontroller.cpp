@@ -87,6 +87,12 @@ public:
     QMetaObject::invokeMethod(m_controller, [this, status]() {
       if (status == ffmpeg::player::media_status::end_of_file) {
         m_controller->stop();
+
+        QString source = m_controller->mediaItem().source.toString();
+        if (!QUrl::fromUserInput(source).isLocalFile()) {
+          /* Playing from the network. Need to resume */
+          m_controller->play();
+        }
       }
 
       m_controller->setMediaStatus(getRadioPlayerMediaStatus(status));
