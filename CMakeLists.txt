@@ -9,7 +9,28 @@ include(CMakeDependentOption)
 
 project(YuRadio VERSION ${YURADIO_VERSION_CANONICAL})
 
-find_package(Qt6 REQUIRED COMPONENTS Core Qml Linguist)
+# NOTE: List of dependencies needed for `qt_generate_deploy_qml_app_script`
+find_package(
+  Qt6 REQUIRED
+  COMPONENTS Core
+             Svg
+             Sql
+             NetworkAuth
+             Location
+             Gui
+             Qml
+             QuickControls2
+             Linguist
+             ShaderTools)
+
+if(NOT ANDROID)
+  # NOTE: Needed for icon in tray, otherwise might be removed
+  find_package(Qt6 REQUIRED COMPONENTS Widgets)
+endif()
+
+if(LINUX)
+  find_package(Qt6 REQUIRED COMPONENTS DBus)
+endif()
 
 qt_standard_project_setup(
   REQUIRES

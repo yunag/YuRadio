@@ -135,17 +135,6 @@ set_target_properties(
              QT_ANDROID_TARGET_SDK_VERSION 34
              QT_ANDROID_SDK_BUILD_TOOLS_REVISION 34.0.0)
 
-find_package(
-  Qt6 REQUIRED
-  COMPONENTS Gui
-             QuickControls2
-             Quick
-             Sql
-             Location
-             NetworkAuth
-             Svg
-             Widgets)
-
 target_link_libraries(
   YuRadio
   PRIVATE FFmpegPlayer
