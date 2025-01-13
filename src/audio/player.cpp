@@ -1,4 +1,5 @@
 #include <QLoggingCategory>
+Q_LOGGING_CATEGORY(ffmpegPlayerLog, "ffmpeg-player")
 Q_LOGGING_CATEGORY(ffmpegLog, "ffmpeg")
 
 extern "C" {
@@ -205,7 +206,7 @@ public:
     const std::chrono::duration<double> wait_duration(
       static_cast<double>(samples_wait) / audio_output_format.sample_rate);
 
-    qCDebug(ffmpegLog).noquote()
+    qCDebug(ffmpegPlayerLog).noquote()
       << "Audio buffer parameters:\n"
       << "\tMinimum size:" << minimum_audio_queue_size << "\n"
       << "\tMaximum size:" << maximum_audio_queue_size << "\n"
@@ -225,7 +226,7 @@ public:
           return q->get_state() != player::state::paused || quit;
         });
 
-        qCDebug(ffmpegLog) << "Resumed after pause";
+        qCDebug(ffmpegPlayerLog) << "Resumed after pause";
 
         if (quit) {
           break;
@@ -250,7 +251,7 @@ public:
 
       if (ec) {
         if (eof && packets.empty()) {
-          qCDebug(ffmpegLog) << "Flush decoder";
+          qCDebug(ffmpegPlayerLog) << "Flush decoder";
 
           /* Null packet to flush decoder's internal buffers */
           packet = ffmpeg::packet(nullptr);
