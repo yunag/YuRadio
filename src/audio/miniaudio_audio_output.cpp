@@ -172,11 +172,9 @@ std::error_code audio_output::push_frame(const ffmpeg::frame &frame) {
   return {};
 }
 
-std::size_t audio_output::samples_in_queue() const {
+int audio_output::samples_in_queue() const {
   const std::unique_lock locker(d->mutex);
-  return d->audio_fifo
-           ? static_cast<std::size_t>(av_audio_fifo_size(d->audio_fifo))
-           : 0;
+  return d->audio_fifo ? av_audio_fifo_size(d->audio_fifo) : 0;
 }
 
 void audio_output::set_audio_device(const ffmpeg::audio_device &device) {

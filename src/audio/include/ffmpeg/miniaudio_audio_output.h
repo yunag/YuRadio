@@ -32,7 +32,7 @@ public:
   void set_input_format(ffmpeg::audio_format format);
   ffmpeg::audio_format output_format() const;
 
-  std::size_t samples_in_queue() const;
+  int samples_in_queue() const;
   void set_audio_device(const ffmpeg::audio_device &device);
 
   std::error_code push_frame(const ffmpeg::frame &frame);
