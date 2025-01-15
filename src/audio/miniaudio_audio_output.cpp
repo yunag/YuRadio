@@ -69,7 +69,7 @@ public:
       reinterpret_cast<miniaudio::audio_output_private *>(device->pUserData);
     assert(d != nullptr);
 
-    std::unique_lock locker(d->mutex);
+    const std::unique_lock locker(d->mutex);
     av_audio_fifo_read(d->audio_fifo, &output, static_cast<int>(frame_count));
   }
 
@@ -85,7 +85,7 @@ public:
     config.pUserData = this;
 
     {
-      std::unique_lock locker(mutex);
+      const std::unique_lock locker(mutex);
 
       ma_device_uninit(&miniaudio_audio_device);
       av_audio_fifo_free(audio_fifo);
@@ -110,7 +110,7 @@ audio_output::audio_output() : d(ffmpeg::make_pimpl<audio_output_private>()) {}
 
 audio_output::~audio_output() {
   {
-    std::unique_lock locker(d->mutex);
+    const std::unique_lock locker(d->mutex);
     ma_device_uninit(&d->miniaudio_audio_device);
     av_audio_fifo_free(d->audio_fifo);
   }
@@ -122,7 +122,7 @@ void audio_output::start() {
 
 void audio_output::stop() {
   {
-    std::unique_lock locker(d->mutex);
+    const std::unique_lock locker(d->mutex);
     if (d->audio_fifo) {
       av_audio_fifo_drain(d->audio_fifo, av_audio_fifo_size(d->audio_fifo));
     }
@@ -138,15 +138,15 @@ void audio_output::pause() {
 void audio_output::set_volume(double volume) {
   assert(volume >= 0);
 
-  ma_result res = ma_device_set_master_volume(&d->miniaudio_audio_device,
-                                              static_cast<float>(volume));
+  const ma_result res = ma_device_set_master_volume(&d->miniaudio_audio_device,
+                                                    static_cast<float>(volume));
   assert(res == MA_SUCCESS);
   d->volume = volume;
 }
 
 double audio_output::volume() const {
   float miniaudio_volume;
-  ma_result res = ma_device_get_master_volume(
+  const ma_result res = ma_device_get_master_volume(
     const_cast<ma_device *>(&d->miniaudio_audio_device), &miniaudio_volume);
 
   assert(res == MA_SUCCESS);
@@ -154,16 +154,15 @@ double audio_output::volume() const {
 }
 
 std::error_code audio_output::push_frame(const ffmpeg::frame &frame) {
-  auto maybe_data = d->resampler.convert(frame, d->output_format);
+  const auto maybe_data = d->resampler.convert(frame, d->output_format);
   if (!maybe_data) {
     return maybe_data.error();
   }
 
-  auto audio_buf = *maybe_data;
+  const auto audio_buf = *maybe_data;
+  const std::uint8_t *const *in = audio_buf.data;
 
   const std::unique_lock locker(d->mutex);
-
-  const std::uint8_t *const *in = audio_buf.data;
 
   av_audio_fifo_write(
     d->audio_fifo,
@@ -174,7 +173,7 @@ std::error_code audio_output::push_frame(const ffmpeg::frame &frame) {
 }
 
 std::size_t audio_output::samples_in_queue() const {
-  std::unique_lock locker(d->mutex);
+  const std::unique_lock locker(d->mutex);
   return d->audio_fifo
            ? static_cast<std::size_t>(av_audio_fifo_size(d->audio_fifo))
            : 0;
@@ -187,7 +186,7 @@ void audio_output::set_audio_device(const ffmpeg::audio_device &device) {
 void audio_output::set_input_format(ffmpeg::audio_format format) {
   d->output_format = format;
 
-  ma_format miniaudio_sample_format =
+  const ma_format miniaudio_sample_format =
     get_miniaudio_sample_format(format.sample_format);
   if (miniaudio_sample_format == ma_format_unknown) {
     /* Use something that works */
