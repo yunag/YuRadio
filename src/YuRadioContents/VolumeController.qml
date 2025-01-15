@@ -21,7 +21,9 @@ FocusScope {
         flow: root.orientation == Qt.Horizontal ? GridLayout.LeftToRight : GridLayout.TopToBottom
 
         property bool muted: false
-        property real lastVolume: volumeSlider.value
+        property real lastVolume: {
+            lastVolume = root.volume;
+        }
 
         states: [
             State {
