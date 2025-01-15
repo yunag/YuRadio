@@ -16,7 +16,6 @@ extern "C" {
 #include <libavutil/audio_fifo.h>
 }
 
-#include <cstddef>
 #include <mutex>
 
 using namespace std::chrono_literals;
@@ -53,12 +52,14 @@ namespace miniaudio {
 
 class audio_output_private {
 public:
+  audio_output_private(audio_output *qptr) : q(qptr) {}
+
   AVAudioFifo *audio_fifo = nullptr;
+  audio_output *q = nullptr;
 
   ffmpeg::audio_resampler resampler;
   ffmpeg::audio_format output_format;
   ma_device miniaudio_audio_device;
-  double volume = 1.0;
 
   mutable std::mutex mutex;
 
@@ -73,19 +74,26 @@ public:
     av_audio_fifo_read(d->audio_fifo, &output, static_cast<int>(frame_count));
   }
 
-  void reset() {
+  void reset(ffmpeg::audio_format format) {
+    if (q->output_format() == format) {
+      return;
+    }
+
     ma_device_config config = ma_device_config_init(ma_device_type_playback);
 
-    config.playback.format =
-      get_miniaudio_sample_format(output_format.sample_format);
-    config.playback.channels =
-      static_cast<ma_uint32>(output_format.channel_count);
-    config.sampleRate = static_cast<ma_uint32>(output_format.sample_rate);
+    config.playback.format = get_miniaudio_sample_format(format.sample_format);
+    config.playback.channels = static_cast<ma_uint32>(format.channel_count);
+    config.sampleRate = static_cast<ma_uint32>(format.sample_rate);
     config.dataCallback = miniaudio_data_callback;
     config.pUserData = this;
 
+    float volume;
+    ma_device_get_master_volume(&miniaudio_audio_device, &volume);
+
     {
       const std::unique_lock locker(mutex);
+
+      output_format = format;
 
       ma_device_uninit(&miniaudio_audio_device);
       av_audio_fifo_free(audio_fifo);
@@ -101,15 +109,16 @@ public:
                             output_format.channel_count, 1);
     }
 
-    ma_device_set_master_volume(&miniaudio_audio_device,
-                                static_cast<float>(volume));
+    ma_device_set_master_volume(&miniaudio_audio_device, volume);
   }
 };
 
-audio_output::audio_output() : d(ffmpeg::make_pimpl<audio_output_private>()) {}
+audio_output::audio_output()
+    : d(ffmpeg::make_pimpl<audio_output_private>(this)) {}
 
 audio_output::~audio_output() {
   {
+    /* Data callback may be still spinning. Acquire lock */
     const std::unique_lock locker(d->mutex);
     ma_device_uninit(&d->miniaudio_audio_device);
     av_audio_fifo_free(d->audio_fifo);
@@ -141,7 +150,6 @@ void audio_output::set_volume(double volume) {
   const ma_result res = ma_device_set_master_volume(&d->miniaudio_audio_device,
                                                     static_cast<float>(volume));
   assert(res == MA_SUCCESS);
-  d->volume = volume;
 }
 
 double audio_output::volume() const {
@@ -177,24 +185,23 @@ int audio_output::samples_in_queue() const {
   return d->audio_fifo ? av_audio_fifo_size(d->audio_fifo) : 0;
 }
 
-void audio_output::set_audio_device(const ffmpeg::audio_device &device) {
+void audio_output::set_audio_device(const ffmpeg::audio_device & /* device */) {
   /* TODO: implement */
 }
 
 void audio_output::set_input_format(ffmpeg::audio_format format) {
-  d->output_format = format;
-
   const ma_format miniaudio_sample_format =
     get_miniaudio_sample_format(format.sample_format);
   if (miniaudio_sample_format == ma_format_unknown) {
     /* Use something that works */
-    d->output_format.sample_format = ffmpeg::sample_format::s32;
+    format.sample_format = ffmpeg::sample_format::s32;
   }
 
-  d->reset();
+  d->reset(format);
 }
 
 ffmpeg::audio_format audio_output::output_format() const {
+  const std::unique_lock locker(d->mutex);
   return d->output_format;
 }
 
