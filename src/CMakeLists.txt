@@ -114,12 +114,6 @@ qt_add_qml_module(
   DEPENDENCIES
   network)
 
-if(OFF) # TODO add option
-  target_sources(
-    YuRadio PRIVATE qtmediaradiocontroller.cpp qtmediaradiocontroller.h
-                    radioinforeaderproxyserver.h radioinforeaderproxyserver.cpp)
-endif()
-
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1. If
 # you are developing for iOS or macOS you should consider setting an explicit,
 # fixed bundle identifier manually though.
@@ -133,7 +127,10 @@ set_target_properties(
              WIN32_EXECUTABLE TRUE
              QT_ANDROID_PACKAGE_SOURCE_DIR ${PROJECT_SOURCE_DIR}/android
              QT_ANDROID_TARGET_SDK_VERSION 34
-             QT_ANDROID_SDK_BUILD_TOOLS_REVISION 34.0.0)
+             QT_ANDROID_SDK_BUILD_TOOLS_REVISION 34.0.0
+             QT_ANDROID_VERSION_NAME ${PROJECT_VERSION}
+             QT_ANDROID_VERSION_CODE
+             "${PROJECT_VERSION_MAJOR}${PROJECT_VERSION_MINOR}")
 
 target_link_libraries(
   YuRadio
