@@ -34,9 +34,10 @@ demuxer::~demuxer() {
 };
 
 void demuxer::close() {
-  std::unique_lock locker(d->ctx_mutex);
-  avformat_close_input(&d->ctx);
-  locker.unlock();
+  {
+    const std::unique_lock locker(d->ctx_mutex);
+    avformat_close_input(&d->ctx);
+  }
 
   d->abort = false;
 }
@@ -46,7 +47,7 @@ void demuxer::abort() {
 }
 
 std::error_code demuxer::open(const char *url) {
-  std::unique_lock locker(d->ctx_mutex);
+  const std::unique_lock locker(d->ctx_mutex);
   /* Context must be closed */
   assert(d->ctx == nullptr);
 
@@ -88,8 +89,6 @@ std::error_code demuxer::open(const char *url) {
   av_dump_format(d->ctx, -1, url, 0);
 #endif /* FFMPEG_PLAYER_DEBUG */
 
-  locker.unlock();
-
   const std::lock_guard decoder_locker(d->decoder_mutex);
   return d->decoder.open(stream);
 }
@@ -107,9 +106,6 @@ std::error_code demuxer::read(ffmpeg::packet &packet) {
 
     return from_av_error_code(ret);
   }
-
-  AVStream *stream = d->ctx->streams[d->audio_stream_index];
-  avpacket->time_base = stream->time_base;
 
   return errc::ok;
 }
