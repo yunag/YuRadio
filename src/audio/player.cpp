@@ -174,10 +174,11 @@ public:
       return ec;
     });
 
-    read_future = std::async(std::launch::async, [this]() {
-      assert(load_future.valid());
+    read_future =
+      std::async(std::launch::async, [this, sh_load_future = load_future]() {
+      assert(sh_load_future.valid());
 
-      std::error_code ec = load_future.get();
+      std::error_code ec = sh_load_future.get();
       if (!ec) {
         read_packets();
       }
@@ -348,10 +349,11 @@ void player::play() {
     d->load_media();
   }
 
-  d->play_future = std::async(std::launch::async, [this]() {
-    assert(d->load_future.valid());
+  d->play_future =
+    std::async(std::launch::async, [this, sh_load_future = d->load_future]() {
+    assert(sh_load_future.valid());
 
-    std::error_code ec = d->load_future.get();
+    std::error_code ec = sh_load_future.get();
     if (!ec) {
       d->set_state(state::playing);
       d->play_audio();
