@@ -13,6 +13,34 @@ namespace ffmpeg {
 class decoder_private {
 public:
   AVCodecContext *codec_ctx = nullptr;
+
+  std::error_code open_impl(const AVStream *stream) {
+    codec_ctx = avcodec_alloc_context3(nullptr);
+    if (!stream) {
+      return errc::stream_not_found;
+    }
+
+    const AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
+    if (!codec) {
+      return errc::decoder_not_found;
+    }
+
+    int ret = avcodec_parameters_to_context(codec_ctx, stream->codecpar);
+    if (ret < 0) {
+      return from_av_error_code(ret);
+    }
+
+    ret = avcodec_open2(codec_ctx, codec, nullptr);
+    if (ret < 0) {
+      return from_av_error_code(ret);
+    }
+
+    codec_ctx->codec_id = codec->id;
+    codec_ctx->codec = codec;
+    codec_ctx->pkt_timebase = stream->time_base;
+
+    return errc::ok;
+  }
 };
 
 decoder::decoder() : d(make_pimpl<decoder_private>()) {};
@@ -26,32 +54,12 @@ std::error_code decoder::open(const AVStream *stream) {
     close();
   }
 
-  d->codec_ctx = avcodec_alloc_context3(nullptr);
-
-  if (!stream) {
-    return errc::stream_not_found;
+  std::error_code ec = d->open_impl(stream);
+  if (ec) {
+    close();
   }
 
-  const AVCodec *codec = avcodec_find_decoder(stream->codecpar->codec_id);
-
-  if (!codec) {
-    return errc::decoder_not_found;
-  }
-
-  int ret = avcodec_parameters_to_context(d->codec_ctx, stream->codecpar);
-  if (ret < 0) {
-    return from_av_error_code(ret);
-  }
-
-  ret = avcodec_open2(d->codec_ctx, codec, nullptr);
-  if (ret < 0) {
-    return from_av_error_code(ret);
-  }
-
-  d->codec_ctx->codec_id = codec->id;
-  d->codec_ctx->codec = codec;
-
-  return errc::ok;
+  return ec;
 }
 
 void decoder::close() {
