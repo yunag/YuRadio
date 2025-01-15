@@ -20,7 +20,7 @@ You can:
 <a id="screenshot-light">
 <img src="doc/screenshot-light.png" height="500">
 </a>
-<img src="doc/screenshot-desktop-dark.png" height="407">
+<img src="doc/screenshot-desktop-dark.png" width="800">
 
 ### Building
 
@@ -47,13 +47,15 @@ Spotify is only needed as an additional backend for displaying music information
 
 `Qt6` `uiohook` `qtmpris`
 
-#### Licensing
+#### Attribution
 
 | Dependency       | License                    |
 | :--------------- | :------------------------- |
-| `Qt`             | LGPL, GPL                  |
+| `Qt`             | LGPL, GPLv3, GPLv2         |
 | `qtmpris`        | LGPL                       |
-| `uiohook`        | GPL                        |
+| `uiohook`        | GPLv3                      |
+| `FFmpeg`         | LGPLv3                     |
+| `miniaudio`      | MIT                        |
 | `Material Icons` | Apache License Version 2.0 |
 
 #### Github Actions
