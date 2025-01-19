@@ -1,20 +1,57 @@
-#ifndef FFMPEG_AUDIO_RESAMPLER
-#define FFMPEG_AUDIO_RESAMPLER
+#ifndef FFMPEG_AUDIO_RESAMPLER_H
+#define FFMPEG_AUDIO_RESAMPLER_H
 
 #include "frame.h"
-#include "maybe.h"
 #include "pimpl.h"
+
+#include <system_error>
+#include <vector>
 
 namespace ffmpeg {
 
 class audio_resampler_private;
 
-struct audio_buffer {
-  audio_buffer(uint8_t **data_planes, int _nb_samples)
-      : data(data_planes), nb_samples(_nb_samples) {}
+class audio_buffer {
+public:
+  audio_buffer() = default;
 
-  std::uint8_t **data;
-  int nb_samples;
+  audio_buffer(audio_format format) { reset(format); }
+
+  void reserve(std::size_t nbytes) { m_buf.reserve(nbytes); }
+
+  void reset(audio_format format) {
+    m_buf = {};
+    m_audio_data = {};
+    m_format = format;
+    m_samples_count = 0;
+
+    if (format.planar()) {
+      m_audio_data.resize(static_cast<std::size_t>(format.channel_count));
+    } else {
+      m_audio_data.resize(1);
+    }
+  }
+
+  uint8_t *data() { return m_buf.data(); }
+
+  const uint8_t *data() const { return m_buf.data(); }
+
+  const uint8_t *const *data_pointers() const { return m_audio_data.data(); }
+
+  uint8_t **data_pointers() { return m_audio_data.data(); }
+
+  void set_samples_count(int nsamples) { m_samples_count = nsamples; }
+
+  int samples_count() const { return m_samples_count; }
+
+  audio_format format() const { return m_format; }
+
+private:
+  std::vector<uint8_t> m_buf;
+  std::vector<uint8_t *> m_audio_data;
+  audio_format m_format;
+
+  int m_samples_count = 0;
 };
 
 class audio_resampler {
@@ -29,14 +66,10 @@ public:
   /**
    * @brief Convert frame to data to desired format
    *
-   * @warning Result audio_buffer might point to frame's internal data if
-   * frame format is the same as `out_format`
-   *
    * @param frame Frame
-   * @param out_format Output format
+   * @param buffer Audio buffer to convert to
    */
-  ffmpeg::maybe<audio_buffer> convert(const frame &frame,
-                                      const audio_format &out_format);
+  std::error_code convert(const frame &frame, audio_buffer &buffer);
 
 private:
   ffmpeg::pimpl<audio_resampler_private> d;
@@ -44,4 +77,4 @@ private:
 
 }  // namespace ffmpeg
 
-#endif /* !FFMPEG_AUDIO_RESAMPLER */
+#endif /* !FFMPEG_AUDIO_RESAMPLER_H */

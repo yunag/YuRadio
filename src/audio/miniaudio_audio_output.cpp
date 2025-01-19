@@ -16,6 +16,7 @@ extern "C" {
 #include <libavutil/audio_fifo.h>
 }
 
+#include <QDebug>
 #include <mutex>
 
 using namespace std::chrono_literals;
@@ -57,6 +58,7 @@ public:
   AVAudioFifo *audio_fifo = nullptr;
   audio_output *q = nullptr;
 
+  ffmpeg::audio_buffer audio_buffer;
   ffmpeg::audio_resampler resampler;
   ffmpeg::audio_format output_format;
   ma_device miniaudio_audio_device;
@@ -94,6 +96,7 @@ public:
       const std::unique_lock locker(mutex);
 
       output_format = format;
+      audio_buffer.reset(format);
 
       ma_device_uninit(&miniaudio_audio_device);
       av_audio_fifo_free(audio_fifo);
@@ -162,20 +165,18 @@ double audio_output::volume() const {
 }
 
 std::error_code audio_output::push_frame(const ffmpeg::frame &frame) {
-  const auto maybe_data = d->resampler.convert(frame, d->output_format);
-  if (!maybe_data) {
-    return maybe_data.error();
+  std::error_code ec = d->resampler.convert(frame, d->audio_buffer);
+  if (ec) {
+    return ec;
   }
-
-  const auto audio_buf = *maybe_data;
-  const std::uint8_t *const *in = audio_buf.data;
 
   const std::unique_lock locker(d->mutex);
 
   av_audio_fifo_write(
     d->audio_fifo,
-    reinterpret_cast<void *const *>(const_cast<uint8_t *const *>(in)),
-    audio_buf.nb_samples);
+    reinterpret_cast<void *const *>(
+      const_cast<uint8_t *const *>(d->audio_buffer.data_pointers())),
+    d->audio_buffer.samples_count());
 
   return {};
 }

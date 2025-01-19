@@ -38,6 +38,7 @@ public:
 
   int bytes_per_sample() const;
   bool valid() const;
+  bool planar() const;
 
 public:
   ffmpeg::sample_format sample_format = sample_format::unknown;

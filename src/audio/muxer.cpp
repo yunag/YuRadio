@@ -100,6 +100,7 @@ public:
   AVAudioFifo *fifo = nullptr;
   SwrContext *resampler_ctx = nullptr;
 
+  ffmpeg::audio_buffer audio_buffer;
   ffmpeg::audio_resampler resampler;
 
   int output_bit_rate = default_output_bit_rate;
@@ -278,24 +279,27 @@ public:
     out_format.sample_format = get_sample_format(codec_ctx->sample_fmt);
     out_format.channel_count = codec_ctx->ch_layout.nb_channels;
 
-    auto maybeData = resampler.convert(frame, out_format);
-    if (!maybeData) {
-      return maybeData.error();
+    if (audio_buffer.format() != out_format) {
+      audio_buffer.reset(out_format);
     }
 
-    audio_buffer buf = *maybeData;
+    std::error_code ec = resampler.convert(frame, audio_buffer);
+    if (ec) {
+      return ec;
+    }
 
-    int ret =
-      av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) + buf.nb_samples);
+    int ret = av_audio_fifo_realloc(fifo, av_audio_fifo_size(fifo) +
+                                            audio_buffer.samples_count());
     if (ret < 0) {
       return from_av_error_code(ret);
     }
 
     ret = av_audio_fifo_write(
       fifo,
-      reinterpret_cast<void *const *>(const_cast<uint8_t *const *>(buf.data)),
-      buf.nb_samples);
-    if (ret < buf.nb_samples) {
+      reinterpret_cast<void *const *>(
+        const_cast<uint8_t *const *>(audio_buffer.data_pointers())),
+      audio_buffer.samples_count());
+    if (ret < audio_buffer.samples_count()) {
       return errc::enomem;
     }
 

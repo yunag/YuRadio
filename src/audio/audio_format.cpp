@@ -19,4 +19,8 @@ int audio_format::bytes_per_sample() const {
   return av_get_bytes_per_sample(get_av_sample_format(sample_format));
 }
 
+bool audio_format::planar() const {
+  return av_sample_fmt_is_planar(get_av_sample_format(sample_format));
+}
+
 }  // namespace ffmpeg
